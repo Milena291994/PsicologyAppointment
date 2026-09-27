@@ -1,0 +1,184 @@
+/**
+ * SHADCN/UI SONNER TOAST STYLES
+ * Matches official `npx shadcn-ui@latest add sonner` design tokens
+ */
+
+.sonner-toaster {
+    position: fixed;
+    z-index: 999999;
+    box-sizing: border-box;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    outline: none;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* Posición Bottom-Right (defecto oficial shadcn) */
+.sonner-bottom-right {
+    bottom: 24px;
+    right: 24px;
+    align-items: flex-end;
+}
+
+.sonner-top-right {
+    top: 24px;
+    right: 24px;
+    align-items: flex-end;
+}
+
+/* Toast individual (shadcn Card style) */
+.sonner-toast {
+    position: absolute;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.08), 0 4px 10px -2px rgba(0, 0, 0, 0.04);
+    pointer-events: auto;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
+                opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+                height 0.25s ease;
+    will-change: transform, opacity;
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+    overflow: hidden;
+}
+
+.sonner-toast-visible {
+    opacity: 1;
+}
+
+.sonner-toast-exiting {
+    opacity: 0 !important;
+    transform: translateY(20px) scale(0.92) !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Contenido interior */
+.sonner-toast-inner {
+    display: flex;
+    align-items: flex-start;
+    padding: 14px 16px;
+    gap: 12px;
+    position: relative;
+}
+
+/* Iconos */
+.sonner-icon-wrapper {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.sonner-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.sonner-icon-success {
+    color: hsl(var(--primary));
+}
+
+.sonner-icon-error {
+    color: hsl(var(--destructive));
+}
+
+.sonner-icon-warning {
+    color: #d97706;
+}
+
+.sonner-icon-info {
+    color: hsl(var(--primary));
+}
+
+.sonner-icon-loading {
+    color: hsl(var(--primary));
+}
+
+/* Tipografía alineada con shadcn */
+.sonner-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.sonner-title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: hsl(var(--card-foreground));
+}
+
+.sonner-description {
+    font-size: 12px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground));
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+/* Botón de acción con estilo shadcn */
+.sonner-action-btn {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: calc(var(--radius) - 4px);
+    border: none;
+    cursor: pointer;
+    margin-left: 4px;
+    transition: opacity 0.15s ease;
+    align-self: center;
+}
+
+.sonner-action-btn:hover {
+    opacity: 0.9;
+}
+
+/* Botón cerrar sutil */
+.sonner-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: hsl(var(--muted-foreground));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.sonner-toast:hover .sonner-close-btn {
+    opacity: 1;
+}
+
+.sonner-close-btn:hover {
+    background-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
+}
+
+/* Acentos específicos para shadcn */
+.sonner-toast-success {
+    border-left: 3.5px solid hsl(var(--primary));
+}
+
+.sonner-toast-error {
+    border-left: 3.5px solid hsl(var(--destructive));
+}
+
+.sonner-toast-warning {
+    border-left: 3.5px solid #f59e0b;
+}
+
+.sonner-toast-info {
+    border-left: 3.5px solid hsl(var(--primary));
+}
