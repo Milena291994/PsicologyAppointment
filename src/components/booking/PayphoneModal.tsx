@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { PatientFormData } from "@/types";
+import { PatientFormData, Specialist } from "@/types";
 import { APP_CONFIG } from "@/data/mockData";
 import { toast } from "sonner";
 
@@ -15,6 +15,7 @@ interface PayphoneModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   formData: PatientFormData;
+  selectedTherapist: Specialist | null;
   onPaymentSuccess: () => void;
 }
 
@@ -22,6 +23,7 @@ export const PayphoneModal: React.FC<PayphoneModalProps> = ({
   open,
   onOpenChange,
   formData,
+  selectedTherapist,
   onPaymentSuccess,
 }) => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -65,7 +67,7 @@ export const PayphoneModal: React.FC<PayphoneModalProps> = ({
             Comercio: <strong>{APP_CONFIG.payphone.merchantName}</strong>
           </p>
           <div className="mt-2 text-2xl font-black text-[#ff5b00] text-center">
-            ${APP_CONFIG.specialist.price.toFixed(2)} USD
+            ${(selectedTherapist?.price ?? 0).toFixed(2)} USD
           </div>
         </DialogHeader>
 

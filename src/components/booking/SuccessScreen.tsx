@@ -1,9 +1,10 @@
 import React from "react";
-import { CheckCircle, Check, MessageCircle, RotateCcw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { CheckCircle, Check, CalendarCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PatientFormData, Modality } from "@/types";
+import { PatientFormData, Modality, Specialist } from "@/types";
 import { APP_CONFIG } from "@/data/mockData";
 
 interface SuccessScreenProps {
@@ -12,7 +13,7 @@ interface SuccessScreenProps {
   selectedTimeLabel: string | null;
   modality: Modality;
   formData: PatientFormData;
-  onReset: () => void;
+  selectedTherapist: Specialist | null;
 }
 
 export const SuccessScreen: React.FC<SuccessScreenProps> = ({
@@ -21,12 +22,9 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
   selectedTimeLabel,
   modality,
   formData,
-  onReset,
+  selectedTherapist,
 }) => {
-  const whatsappMessage = encodeURIComponent(
-    `Hola ${APP_CONFIG.specialist.name}, acabo de agendar y pagar mi cita psicológica en ${APP_CONFIG.clinicName} para el ${selectedDate} a las ${selectedTimeLabel}. Código: ${bookingCode}. Paciente: ${formData.fullName}`
-  );
-
+  const therapistName = selectedTherapist?.name || APP_CONFIG.clinicName;
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <Card className="p-6 sm:p-10 text-center shadow-lg border-primary/20">
@@ -38,7 +36,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
           ¡Cita Confirmada y Pagada!
         </Badge>
 
-        <h2 className="text-2xl font-bold text-foreground mt-3">
+        <h2 className="font-display text-2xl font-semibold text-foreground mt-3">
           Tu espacio terapéutico está reservado
         </h2>
         <p className="text-xs text-muted-foreground mt-2 max-w-md mx-auto">
@@ -50,7 +48,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold block">
             Código de Reserva
           </span>
-          <span className="text-xl font-bold text-primary tracking-wider">
+          <span className="font-mono text-xl font-semibold text-primary tracking-wider">
             {bookingCode}
           </span>
         </div>
@@ -60,7 +58,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
           <div className="flex justify-between">
             <span className="text-muted-foreground">Especialista:</span>
             <span className="font-semibold text-foreground">
-              {APP_CONFIG.specialist.name}
+              {therapistName}
             </span>
           </div>
           <div className="flex justify-between">
@@ -101,29 +99,13 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
           </div>
         </div>
 
-        {/* Botones de acción */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Button
-            asChild
-            className="h-11 px-5 text-xs gap-2 w-full sm:w-auto"
-          >
-            <a
-              href={`https://wa.me/593991234567?text=${whatsappMessage}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>Contactar por WhatsApp</span>
-            </a>
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={onReset}
-            className="h-11 px-5 text-xs gap-2 w-full sm:w-auto"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Volver a iniciar el Demo</span>
+        {/* Acción */}
+        <div className="flex justify-center">
+          <Button asChild className="h-11 px-5 text-xs gap-2 w-full sm:w-auto">
+            <Link to="/citas">
+              <CalendarCheck className="w-4 h-4" />
+              <span>Ver mis citas</span>
+            </Link>
           </Button>
         </div>
       </Card>

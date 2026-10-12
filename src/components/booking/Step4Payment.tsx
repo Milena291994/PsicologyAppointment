@@ -3,12 +3,12 @@ import { CreditCard, Lock, Check, ArrowLeft, ArrowRight } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PatientFormData, Modality } from "@/types";
-import { APP_CONFIG } from "@/data/mockData";
+import { PatientFormData, Modality, Specialist } from "@/types";
 
 interface Step4PaymentProps {
   formData: PatientFormData;
   modality: Modality;
+  selectedTherapist: Specialist | null;
   onOpenPayphone: () => void;
   onBack: () => void;
 }
@@ -16,9 +16,12 @@ interface Step4PaymentProps {
 export const Step4Payment: React.FC<Step4PaymentProps> = ({
   formData,
   modality,
+  selectedTherapist,
   onOpenPayphone,
   onBack,
 }) => {
+  const price = selectedTherapist?.price ?? 0;
+
   return (
     <Card>
       <CardHeader className="border-b border-border pb-5">
@@ -68,13 +71,19 @@ export const Step4Payment: React.FC<Step4PaymentProps> = ({
                 {formData.email} • {formData.phone}
               </span>
             </div>
+            <div className="sm:col-span-2">
+              <span className="text-muted-foreground block text-[11px]">Especialista asignado:</span>
+              <span className="font-medium text-foreground">
+                {selectedTherapist?.name || "—"}
+              </span>
+            </div>
           </div>
 
           {/* Desglose */}
           <div className="border-t border-border pt-3 space-y-2 text-xs">
             <div className="flex justify-between text-muted-foreground">
               <span>Sesión Psicológica Clínica Individual (50 min):</span>
-              <span className="font-semibold text-foreground">$45.00 USD</span>
+              <span className="font-semibold text-foreground">${price.toFixed(2)} USD</span>
             </div>
             <div className="flex justify-between text-muted-foreground text-[11px]">
               <span>IVA 0% (Servicio de Salud exento de gravamen):</span>
@@ -82,7 +91,7 @@ export const Step4Payment: React.FC<Step4PaymentProps> = ({
             </div>
             <div className="flex justify-between items-center text-sm font-bold text-foreground pt-2 border-t border-border">
               <span className="text-base text-primary">Total a pagar:</span>
-              <span className="text-xl text-primary">$45.00 USD</span>
+              <span className="text-xl text-primary">${price.toFixed(2)} USD</span>
             </div>
           </div>
         </div>
@@ -124,7 +133,7 @@ export const Step4Payment: React.FC<Step4PaymentProps> = ({
             className="btn-payphone w-full font-bold text-base gap-2 group cursor-pointer"
           >
             <CreditCard className="w-5 h-5" />
-            <span>Agendar y Pagar con Payphone ($45.00 USD)</span>
+            <span>Agendar y Pagar con Payphone (${price.toFixed(2)} USD)</span>
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Button>
           <p className="text-center text-[11px] text-muted-foreground">

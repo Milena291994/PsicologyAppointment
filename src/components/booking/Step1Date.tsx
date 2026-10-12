@@ -1,13 +1,16 @@
 import React, { useState } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Sparkles, ArrowRight, ArrowUpRight } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Sparkles, ArrowRight, ArrowUpRight, Star, UserCircle2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TentativeDate } from "@/types";
+import { APP_CONFIG } from "@/data/mockData";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface Step1DateProps {
+  selectedTherapistId: string | null;
+  onSelectTherapist: (id: string) => void;
   selectedDate: string | null;
   onSelectDate: (dateKey: string) => void;
   onContinue: () => void;
@@ -41,6 +44,8 @@ function formatDisplayDate(dateKey: string): string {
 }
 
 export const Step1Date: React.FC<Step1DateProps> = ({
+  selectedTherapistId,
+  onSelectTherapist,
   selectedDate,
   onSelectDate,
   onContinue,
@@ -175,10 +180,10 @@ export const Step1Date: React.FC<Step1DateProps> = ({
               Paso 1 de 4
             </Badge>
             <CardTitle className="text-xl font-bold mt-2">
-              Selecciona la fecha para tu sesión
+              Elige tu terapeuta y la fecha de tu sesión
             </CardTitle>
             <CardDescription>
-              Elige un día en el calendario o selecciona una de nuestras fechas tentativas recomendadas.
+              Primero selecciona con quién quieres atenderte. Luego elige un día en el calendario o una de nuestras fechas tentativas recomendadas.
             </CardDescription>
           </div>
           <div className="w-10 h-10 rounded-xl bg-secondary text-primary flex items-center justify-center shrink-0">
@@ -188,7 +193,66 @@ export const Step1Date: React.FC<Step1DateProps> = ({
       </CardHeader>
 
       <CardContent className="pt-6 space-y-6">
+        {/* Selección de terapeuta */}
+        <div>
+          <label className="text-xs font-semibold text-foreground flex items-center gap-1.5 mb-2.5">
+            <UserCircle2 className="w-3.5 h-3.5 text-primary" />
+            Elige tu terapeuta:
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {APP_CONFIG.specialists.map((sp) => (
+              <button
+                key={sp.id}
+                type="button"
+                onClick={() => onSelectTherapist(sp.id)}
+                className={cn(
+                  "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                  selectedTherapistId === sp.id
+                    ? "border-primary bg-secondary/80 ring-1 ring-primary"
+                    : "border-border bg-card hover:bg-accent/40 hover:border-primary/40"
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <img
+                    src={sp.avatar}
+                    alt={sp.name}
+                    className="w-10 h-10 rounded-lg object-cover shrink-0 ring-1 ring-border"
+                  />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-foreground text-xs sm:text-sm truncate">
+                      {sp.name}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {sp.title.split("•")[0].trim()}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-2.5 text-[11px]">
+                  <span className="flex items-center gap-1 text-primary font-bold">
+                    <Star className="w-3 h-3 fill-primary text-primary" />
+                    {sp.rating}
+                  </span>
+                  <span className="font-semibold text-primary">
+                    {sp.currencySymbol}{sp.price.toFixed(2)}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Fechas tentativas recomendadas */}
+        <div
+          className={cn(
+            "space-y-6 transition-opacity",
+            !selectedTherapistId && "opacity-50 pointer-events-none"
+          )}
+        >
+        {!selectedTherapistId && (
+          <p className="text-xs text-muted-foreground italic">
+            Selecciona un/a terapeuta para ver fechas disponibles.
+          </p>
+        )}
         <div>
           <label className="text-xs font-semibold text-foreground flex items-center gap-1.5 mb-2.5">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
@@ -206,7 +270,7 @@ export const Step1Date: React.FC<Step1DateProps> = ({
                   handleSelectDay(item.dateKey);
                 }}
                 className={cn(
-                  "p-3 rounded-xl border text-left transition-all group focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer",
+                  "p-3 rounded-xl border text-left transition-[background-color,border-color] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer",
                   selectedDate === item.dateKey
                     ? "border-primary bg-secondary/80 ring-1 ring-primary"
                     : "border-border bg-card hover:bg-accent/40 hover:border-primary/40"
@@ -283,11 +347,18 @@ export const Step1Date: React.FC<Step1DateProps> = ({
             </div>
           </div>
         </div>
+        </div>
       </CardContent>
 
       <CardFooter className="border-t border-border pt-4 justify-end">
         <Button
           onClick={() => {
+            if (!selectedTherapistId) {
+              toast.error("Terapeuta requerido", {
+                description: "Por favor selecciona un/a terapeuta antes de continuar.",
+              });
+              return;
+            }
             if (!selectedDate) {
               toast.error("Fecha requerida", {
                 description: "Por favor selecciona un día en el calendario antes de continuar.",

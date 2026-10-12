@@ -603,7 +603,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             if (!state.patientData.acceptedTerms) {
-                notify.warning("Consentimiento requerido", "Por favor acepta el consentimiento informado y confidencialidad médica.");
+                notify.warning("Consentimiento requerido", "Por favor acepta el consentimiento informado y confidencialidad psicológica.");
                 return;
             }
             notify.success("Datos confirmados", "Información del paciente verificada correctamente.");

@@ -19,7 +19,7 @@ export const Step2Time: React.FC<Step2TimeProps> = ({
   onSelectTime,
   onBack,
   onContinue,
-}) => {
+}: Step2TimeProps) => {
   const morningSlots = APP_CONFIG.defaultSlots.filter((s) => s.period === "morning");
   const afternoonSlots = APP_CONFIG.defaultSlots.filter((s) => s.period === "afternoon");
 
@@ -63,7 +63,7 @@ export const Step2Time: React.FC<Step2TimeProps> = ({
         {/* Turno Mañana */}
         <div>
           <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-foreground">
-            <Sun className="w-4 h-4 text-amber-500" />
+            <Sun className="w-4 h-4 text-primary" />
             <span>Turno Mañana (08:30 AM - 12:20 PM)</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -102,7 +102,7 @@ export const Step2Time: React.FC<Step2TimeProps> = ({
         {/* Turno Tarde */}
         <div>
           <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-foreground">
-            <Sunset className="w-4 h-4 text-indigo-500" />
+            <Sunset className="w-4 h-4 text-primary" />
             <span>Turno Tarde (02:00 PM - 06:50 PM)</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">

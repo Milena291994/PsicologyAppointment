@@ -36,7 +36,7 @@ export const Stepper: React.FC<StepperProps> = ({ currentStep, onStepClick }) =>
               >
                 <div
                   className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all",
+                    "w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs font-semibold transition-all",
                     isCurrent &&
                       "bg-primary text-primary-foreground ring-4 ring-primary/20",
                     isDone && "bg-primary text-primary-foreground",

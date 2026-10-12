@@ -1,15 +1,14 @@
 import React from "react";
-import { Star, Calendar, Clock, Video, User, HelpCircle } from "lucide-react";
+import { Calendar, Clock, Video, User, HelpCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { APP_CONFIG } from "@/data/mockData";
-import { PatientFormData, Modality } from "@/types";
+import { PatientFormData, Modality, Specialist } from "@/types";
 
 interface BookingSummaryProps {
   selectedDate: string | null;
   selectedTimeLabel: string | null;
   modality: Modality;
   formData: PatientFormData;
+  selectedTherapist: Specialist | null;
 }
 
 export const BookingSummary: React.FC<BookingSummaryProps> = ({
@@ -17,56 +16,10 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
   selectedTimeLabel,
   modality,
   formData,
+  selectedTherapist,
 }) => {
-  const spec = APP_CONFIG.specialist;
-
   return (
     <aside className="space-y-6">
-      {/* Tarjeta del Especialista */}
-      <Card className="p-5 sm:p-6 space-y-4">
-        <div className="flex items-center gap-3.5">
-          <img
-            src={spec.avatar}
-            alt={spec.name}
-            className="w-14 h-14 rounded-xl object-cover shadow-sm ring-1 ring-border"
-          />
-          <div>
-            <div className="flex items-center gap-1.5">
-              <Badge variant="secondary" className="text-[10px]">
-                Especialista
-              </Badge>
-              <div className="flex items-center text-amber-500 text-xs font-bold gap-0.5">
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                <span>{spec.rating}</span>
-              </div>
-            </div>
-            <h3 className="font-bold text-foreground text-sm sm:text-base mt-0.5">
-              {spec.name}
-            </h3>
-            <p className="text-xs text-muted-foreground">{spec.title.split("•")[0]}</p>
-          </div>
-        </div>
-
-        <p className="text-xs text-muted-foreground leading-relaxed bg-muted/30 p-3 rounded-lg border border-border">
-          "{spec.about.slice(0, 155)}..."
-        </p>
-
-        <div className="grid grid-cols-2 gap-2 text-center text-xs pt-1">
-          <div className="bg-secondary/60 p-2 rounded-lg border border-border/50">
-            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
-              Experiencia
-            </span>
-            <span className="font-bold text-foreground">{spec.experienceYears}+ años</span>
-          </div>
-          <div className="bg-secondary/60 p-2 rounded-lg border border-border/50">
-            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
-              Registro MSP
-            </span>
-            <span className="font-bold text-foreground">{spec.registry.split("#")[1] ? `#${spec.registry.split("#")[1]}` : spec.registry}</span>
-          </div>
-        </div>
-      </Card>
-
       {/* Resumen dinámico en vivo */}
       <Card className="p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
@@ -132,7 +85,9 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
         <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
           <span className="text-muted-foreground font-medium">Inversión de la sesión:</span>
           <span className="text-base font-bold text-primary">
-            ${spec.price.toFixed(2)} {spec.currency}
+            {selectedTherapist
+              ? `${selectedTherapist.currencySymbol}${selectedTherapist.price.toFixed(2)} ${selectedTherapist.currency}`
+              : "Por seleccionar"}
           </span>
         </div>
       </Card>
