@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { CalendarPlus, ListChecks, HeartHandshake, UserRound } from "lucide-react";
+import { CalendarPlus, ListChecks, HeartHandshake, UserRound, CircleHelp } from "lucide-react";
 import { usePatientStore } from "@/store/usePatientStore";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: "/agendar", label: "Agendar cita", icon: CalendarPlus },
   { to: "/citas", label: "Mis citas", icon: ListChecks },
   { to: "/perfil", label: "Mi perfil", icon: UserRound },
+  { to: "/preguntas", label: "Preguntas y respuestas", icon: CircleHelp },
 ];
 
 export const Sidebar: React.FC = () => {

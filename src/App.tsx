@@ -5,6 +5,7 @@ import { RegisterPage } from "@/pages/RegisterPage";
 import { BookingPage } from "@/pages/BookingPage";
 import { AppointmentsPage } from "@/pages/AppointmentsPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { FaqPage } from "@/pages/FaqPage";
 
 export function App() {
   return (
@@ -17,6 +18,7 @@ export function App() {
           <Route path="/agendar" element={<BookingPage />} />
           <Route path="/citas" element={<AppointmentsPage />} />
           <Route path="/perfil" element={<ProfilePage />} />
+          <Route path="/preguntas" element={<FaqPage />} />
         </Route>
 
         <Route path="/" element={<Navigate to="/agendar" replace />} />
