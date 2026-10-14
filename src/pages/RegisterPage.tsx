@@ -1,6 +1,6 @@
 import React from "react";
 import { useForm } from "react-hook-form";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { UserPlus } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { usePatientStore } from "@/store/usePatientStore";
+import { ROUTES } from "@/routes/paths";
 import { APP_CONFIG } from "@/data/mockData";
 import { toast } from "sonner";
 
@@ -26,7 +27,6 @@ interface RegisterFormValues {
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const isAuthenticated = usePatientStore((s) => s.isAuthenticated);
   const registerPatient = usePatientStore((s) => s.register);
 
   const {
@@ -35,10 +35,6 @@ export const RegisterPage: React.FC = () => {
     watch,
     formState: { errors },
   } = useForm<RegisterFormValues>();
-
-  if (isAuthenticated) {
-    return <Navigate to="/agendar" replace />;
-  }
 
   const onSubmit = (data: RegisterFormValues) => {
     const result = registerPatient({
@@ -57,7 +53,7 @@ export const RegisterPage: React.FC = () => {
     }
 
     toast.success("Cuenta creada con éxito", { description: "Ya puedes agendar tu sesión." });
-    navigate("/agendar");
+    navigate(ROUTES.booking);
   };
 
   return (
@@ -212,7 +208,7 @@ export const RegisterPage: React.FC = () => {
             </Button>
             <p className="text-xs text-muted-foreground text-center">
               ¿Ya tienes cuenta?{" "}
-              <Link to="/login" className="text-primary font-semibold hover:underline">
+              <Link to={ROUTES.login}className="text-primary font-semibold hover:underline">
                 Inicia sesión
               </Link>
             </p>

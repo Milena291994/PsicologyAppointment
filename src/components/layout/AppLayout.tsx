@@ -1,19 +1,15 @@
 import React, { useState } from "react";
-import { Navigate, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { BreathingModal } from "@/components/booking/BreathingModal";
-import { usePatientStore } from "@/store/usePatientStore";
+import { Toaster } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/data/mockData";
 
+/** Solo estructura visual; la autenticación y el rol los controlan los guards de `src/routes/guards.tsx`. */
 export const AppLayout: React.FC = () => {
-  const isAuthenticated = usePatientStore((s) => s.isAuthenticated);
   const [isBreathingOpen, setIsBreathingOpen] = useState(false);
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
 
   return (
     <div className="flex min-h-screen text-foreground antialiased">
@@ -39,6 +35,7 @@ export const AppLayout: React.FC = () => {
       </div>
 
       <BreathingModal open={isBreathingOpen} onOpenChange={setIsBreathingOpen} />
+      <Toaster position="bottom-right" richColors />
     </div>
   );
 };

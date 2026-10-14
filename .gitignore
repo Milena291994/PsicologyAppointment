@@ -4,3 +4,8 @@ dist/
 .agents/
 .hallmark/
 skills-lock.json
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local

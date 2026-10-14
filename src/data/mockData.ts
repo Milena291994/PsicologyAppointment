@@ -1,4 +1,5 @@
-import { AppConfig } from "@/types";
+import { AppConfig, Appointment } from "@/types";
+import { formatDateKey } from "@/lib/date";
 
 export const APP_CONFIG: AppConfig = {
   clinicName: "Psicología y Mente",
@@ -17,7 +18,8 @@ export const APP_CONFIG: AppConfig = {
       price: 45.0,
       currency: "USD",
       currencySymbol: "$",
-      languages: ["Español", "English"]
+      languages: ["Español", "English"],
+      active: true
     },
     {
       id: "sp2",
@@ -33,7 +35,8 @@ export const APP_CONFIG: AppConfig = {
       price: 50.0,
       currency: "USD",
       currencySymbol: "$",
-      languages: ["Español"]
+      languages: ["Español"],
+      active: true
     },
     {
       id: "sp3",
@@ -49,7 +52,8 @@ export const APP_CONFIG: AppConfig = {
       price: 38.0,
       currency: "USD",
       currencySymbol: "$",
-      languages: ["Español", "English"]
+      languages: ["Español", "English"],
+      active: true
     }
   ],
   payphone: {
@@ -106,6 +110,16 @@ export const APP_CONFIG: AppConfig = {
       password: "1234"
     }
   ],
+  // Demo login de terapeutas (pestaña "Terapeuta" en /login): cédula + password "1234".
+  therapistAccounts: [
+    { specialistId: "sp1", identification: "1711111111", password: "1234" },
+    { specialistId: "sp2", identification: "1722222222", password: "1234" },
+    { specialistId: "sp3", identification: "1733333333", password: "1234" }
+  ],
+  // Demo login de administración (/admin/login): cédula + password "1234".
+  adminAccounts: [
+    { id: "adm1", name: "Administración Psicología y Mente", identification: "0999999999", password: "1234" }
+  ],
   defaultSlots: [
     { time: "08:30", period: "morning", label: "08:30 AM" },
     { time: "09:30", period: "morning", label: "09:30 AM" },
@@ -119,3 +133,103 @@ export const APP_CONFIG: AppConfig = {
   ],
   disabledDaysOfWeek: [0] // Domingo cerrado
 };
+
+/** Fecha a `offset` días de hoy; si cae en un día cerrado, avanza al siguiente día hábil. */
+function workingDayFromToday(offset: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  while (APP_CONFIG.disabledDaysOfWeek.includes(date.getDay())) {
+    date.setDate(date.getDate() + 1);
+  }
+  return formatDateKey(date);
+}
+
+const [camila, mateo, lucia] = APP_CONFIG.registeredPatients;
+
+function priceOf(therapistId: string): number {
+  return APP_CONFIG.specialists.find((s) => s.id === therapistId)?.price ?? 0;
+}
+
+/** El pago se registra `paidDaysBefore` días antes de la sesión, nunca en el futuro. */
+function paidAtFor(dateKey: string, paidDaysBefore: number): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const paid = new Date(y, m - 1, d - paidDaysBefore, 10, 0);
+  const now = new Date();
+  return (paid > now ? now : paid).toISOString();
+}
+
+function seed(
+  n: number,
+  patient: typeof camila,
+  therapistId: string,
+  dayOffset: number,
+  timeLabel: string,
+  modality: Appointment["modality"]
+): Appointment {
+  const date = workingDayFromToday(dayOffset);
+  return {
+    id: `apt-seed-${n}`,
+    attendeeType: "patient",
+    attendeeId: patient.id,
+    attendeeName: patient.fullName,
+    attendeeIdentification: patient.identification,
+    therapistId,
+    date,
+    timeLabel,
+    modality,
+    bookingCode: `CS-${100200 + n}`,
+    amountPaid: priceOf(therapistId),
+    createdAt: paidAtFor(date, 2)
+  };
+}
+
+/**
+ * Sesiones ya atendidas en los últimos `days` días, generadas de forma determinista
+ * para que la pantalla de ingresos del terapeuta tenga historial en la demo.
+ */
+function pastSeeds(therapistId: string, therapistIndex: number, days: number): Appointment[] {
+  const patients = [camila, mateo, lucia];
+  const result: Appointment[] = [];
+
+  for (let offset = 1; offset <= days; offset++) {
+    const day = new Date();
+    day.setDate(day.getDate() - offset);
+    if (APP_CONFIG.disabledDaysOfWeek.includes(day.getDay())) continue;
+
+    const dateKey = formatDateKey(day);
+    const sessions = (offset * 7 + therapistIndex * 3) % 4; // 0–3 sesiones al día
+    for (let i = 0; i < sessions; i++) {
+      const n = result.length;
+      const patient = patients[(offset + i + therapistIndex) % patients.length];
+      const slot = APP_CONFIG.defaultSlots[(offset * 3 + i * 4 + therapistIndex) % APP_CONFIG.defaultSlots.length];
+      result.push({
+        id: `apt-hist-${therapistId}-${n}`,
+        attendeeType: "patient",
+        attendeeId: patient.id,
+        attendeeName: patient.fullName,
+        attendeeIdentification: patient.identification,
+        therapistId,
+        date: dateKey,
+        timeLabel: slot.label,
+        modality: (offset + i) % 3 === 0 ? "presencial" : "online",
+        bookingCode: `CS-${300000 + therapistIndex * 10000 + n}`,
+        amountPaid: priceOf(therapistId),
+        createdAt: paidAtFor(dateKey, 1 + ((offset + i) % 4))
+      });
+    }
+  }
+  return result;
+}
+
+// Citas precargadas (relativas a hoy) para que la agenda del terapeuta tenga contenido en la demo.
+export const SEED_APPOINTMENTS: Appointment[] = [
+  ...APP_CONFIG.specialists.flatMap((s, index) => pastSeeds(s.id, index, 180)),
+  seed(1, camila, "sp1", 0, "09:30 AM", "online"),
+  seed(2, mateo, "sp1", 0, "11:30 AM", "presencial"),
+  seed(3, lucia, "sp1", 0, "04:00 PM", "online"),
+  seed(4, mateo, "sp1", 1, "08:30 AM", "presencial"),
+  seed(5, camila, "sp1", 3, "03:00 PM", "online"),
+  seed(6, lucia, "sp2", 0, "10:30 AM", "presencial"),
+  seed(7, camila, "sp2", 2, "05:00 PM", "online"),
+  seed(8, mateo, "sp3", 1, "02:00 PM", "online")
+];

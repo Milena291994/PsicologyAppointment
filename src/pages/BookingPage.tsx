@@ -11,7 +11,6 @@ import { PayphoneModal } from "@/components/booking/PayphoneModal";
 import { SuccessScreen } from "@/components/booking/SuccessScreen";
 import { Modality, PatientFormData, AttendeeSelection } from "@/types";
 import { usePatientStore } from "@/store/usePatientStore";
-import { APP_CONFIG } from "@/data/mockData";
 import { toast } from "sonner";
 
 export function BookingPage() {
@@ -20,7 +19,8 @@ export function BookingPage() {
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [selectedTherapistId, setSelectedTherapistId] = useState<string | null>(null);
-  const selectedTherapist = APP_CONFIG.specialists.find((s) => s.id === selectedTherapistId) || null;
+  const specialists = usePatientStore((s) => s.specialists);
+  const selectedTherapist = specialists.find((s) => s.id === selectedTherapistId) || null;
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedTimeLabel, setSelectedTimeLabel] = useState<string | null>(null);
@@ -68,16 +68,23 @@ export function BookingPage() {
     setBookingCode(code);
     setIsSuccess(true);
 
-    if (selectedDate && selectedTimeLabel) {
+    if (selectedDate && selectedTimeLabel && currentPatient) {
+      const attendeeIdentification =
+        attendee.type === "patient"
+          ? currentPatient.identification
+          : currentPatient.dependents.find((d) => d.id === attendee.id)?.identification || "";
+
       addAppointment({
         attendeeType: attendee.type,
         attendeeId: attendee.id,
         attendeeName: attendee.name,
+        attendeeIdentification,
         therapistId: selectedTherapistId,
         date: selectedDate,
         timeLabel: selectedTimeLabel,
         modality,
         bookingCode: code,
+        amountPaid: selectedTherapist?.price ?? 0,
       });
     }
 
