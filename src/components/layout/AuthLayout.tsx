@@ -1,6 +1,7 @@
 import React from "react";
 import { HeartHandshake, ShieldCheck, Video } from "lucide-react";
 import { APP_CONFIG } from "@/data/mockData";
+import { usePatientStore } from "@/store/usePatientStore";
 import { cn } from "@/lib/utils";
 
 interface AuthLayoutProps {
@@ -14,6 +15,8 @@ interface AuthLayoutProps {
  * autenticación genéricas.
  */
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, maxWidthClassName = "max-w-md" }) => {
+  const activeCount = usePatientStore((s) => s.specialists.filter((sp) => sp.active).length);
+
   return (
     <div className="min-h-screen grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <aside className="auth-brand-gradient text-primary-foreground flex flex-col justify-between px-6 sm:px-10 py-8 lg:py-12">
@@ -29,7 +32,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, maxWidthClassN
             Dar este paso es un acto de valentía y cuidado contigo mismo.
           </p>
           <p className="text-sm text-primary-foreground/80 mt-3 leading-relaxed">
-            Agenda tu sesión con {APP_CONFIG.specialists.length} terapeutas disponibles, de forma
+            Agenda tu sesión con {activeCount} terapeutas disponibles, de forma
             confidencial y segura.
           </p>
         </div>

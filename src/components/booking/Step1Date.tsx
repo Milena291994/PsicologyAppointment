@@ -4,9 +4,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TentativeDate } from "@/types";
-import { APP_CONFIG } from "@/data/mockData";
+import { usePatientStore } from "@/store/usePatientStore";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatDateKey, parseDateKey } from "@/lib/date";
 
 interface Step1DateProps {
   selectedTherapistId: string | null;
@@ -21,16 +22,14 @@ const monthNames = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
-function formatDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function parseDateKey(dateKey: string): Date {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  return new Date(y, m - 1, d);
+/** Iniciales para terapeutas sin foto; ignora tratamientos y abreviaturas ("Dra.", "M."). */
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter((word) => word && !word.endsWith("."))
+    .slice(0, 2)
+    .map((word) => word[0].toUpperCase())
+    .join("");
 }
 
 function formatDisplayDate(dateKey: string): string {
@@ -50,6 +49,8 @@ export const Step1Date: React.FC<Step1DateProps> = ({
   onSelectDate,
   onContinue,
 }) => {
+  const specialists = usePatientStore((s) => s.specialists);
+  const activeSpecialists = specialists.filter((sp) => sp.active);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -200,7 +201,7 @@ export const Step1Date: React.FC<Step1DateProps> = ({
             Elige tu terapeuta:
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {APP_CONFIG.specialists.map((sp) => (
+            {activeSpecialists.map((sp) => (
               <button
                 key={sp.id}
                 type="button"
@@ -213,11 +214,20 @@ export const Step1Date: React.FC<Step1DateProps> = ({
                 )}
               >
                 <div className="flex items-center gap-2.5">
-                  <img
-                    src={sp.avatar}
-                    alt={sp.name}
-                    className="w-10 h-10 rounded-lg object-cover shrink-0 ring-1 ring-border"
-                  />
+                  {sp.avatar ? (
+                    <img
+                      src={sp.avatar}
+                      alt={sp.name}
+                      className="w-10 h-10 rounded-lg object-cover shrink-0 ring-1 ring-border"
+                    />
+                  ) : (
+                    <div
+                      aria-hidden="true"
+                      className="w-10 h-10 rounded-full shrink-0 ring-1 ring-border bg-secondary text-primary text-xs font-bold flex items-center justify-center"
+                    >
+                      {initialsOf(sp.name)}
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <div className="font-semibold text-foreground text-xs sm:text-sm truncate">
                       {sp.name}
@@ -228,11 +238,13 @@ export const Step1Date: React.FC<Step1DateProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-2.5 text-[11px]">
-                  <span className="flex items-center gap-1 text-primary font-bold">
-                    <Star className="w-3 h-3 fill-primary text-primary" />
-                    {sp.rating}
-                  </span>
-                  <span className="font-semibold text-primary">
+                  {sp.reviewsCount > 0 && (
+                    <span className="flex items-center gap-1 text-primary font-bold">
+                      <Star className="w-3 h-3 fill-primary text-primary" />
+                      {sp.rating}
+                    </span>
+                  )}
+                  <span className="ml-auto font-semibold text-primary">
                     {sp.currencySymbol}{sp.price.toFixed(2)}
                   </span>
                 </div>

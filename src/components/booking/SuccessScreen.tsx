@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PatientFormData, Modality, Specialist } from "@/types";
 import { APP_CONFIG } from "@/data/mockData";
+import { ROUTES } from "@/routes/paths";
 
 interface SuccessScreenProps {
   bookingCode: string;
@@ -102,7 +103,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
         {/* Acción */}
         <div className="flex justify-center">
           <Button asChild className="h-11 px-5 text-xs gap-2 w-full sm:w-auto">
-            <Link to="/citas">
+            <Link to={ROUTES.appointments}>
               <CalendarCheck className="w-4 h-4" />
               <span>Ver mis citas</span>
             </Link>

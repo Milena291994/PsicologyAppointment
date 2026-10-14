@@ -20,6 +20,8 @@ export interface Specialist {
   currency: string;
   currencySymbol: string;
   languages: string[];
+  /** false = oculto al reservar/reprogramar y sin acceso al login. */
+  active: boolean;
 }
 
 export type Sex = "femenino" | "masculino" | "intersexual" | "no_indica";
@@ -66,16 +68,38 @@ export interface Dependent {
   consultReason: string;
 }
 
+export type UserRole = "patient" | "therapist" | "admin";
+
+/** Cuenta de administrador (login en /admin/login). Demo-only, ver CLAUDE.md. */
+export interface AdminAccount {
+  id: string;
+  name: string;
+  identification: string;
+  password: string;
+}
+
+/** Credenciales de acceso de un terapeuta, vinculadas a su ficha en `specialists`. Demo-only, ver CLAUDE.md. */
+export interface TherapistAccount {
+  specialistId: string;
+  identification: string;
+  password: string;
+}
+
 export interface Appointment {
   id: string;
   attendeeType: "patient" | "dependent";
   attendeeId: string;
   attendeeName: string;
+  /** Cédula del paciente o dependiente que asiste; el terapeuta filtra su agenda por ella. */
+  attendeeIdentification: string;
   therapistId: string | null;
   date: string;
   timeLabel: string;
   modality: Modality;
   bookingCode: string;
+  /** Monto cobrado vía Payphone al agendar (USD, IVA 0%); se congela aunque luego cambie la tarifa. */
+  amountPaid: number;
+  /** Momento del pago (ISO); la pantalla de ingresos agrupa por esta fecha, no por la de la sesión. */
   createdAt: string;
 }
 
@@ -122,6 +146,8 @@ export interface AppConfig {
   // Ruta pública del PDF de Términos y Condiciones y Política de Protección de Datos.
   termsUrl: string;
   registeredPatients: Patient[];
+  therapistAccounts: TherapistAccount[];
+  adminAccounts: AdminAccount[];
   defaultSlots: TimeSlot[];
   disabledDaysOfWeek: number[];
 }

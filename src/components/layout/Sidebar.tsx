@@ -1,18 +1,38 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { CalendarPlus, ListChecks, HeartHandshake, UserRound, CircleHelp } from "lucide-react";
+import { CalendarPlus, ListChecks, HeartHandshake, UserRound, CircleHelp, CalendarDays, Wallet, Stethoscope } from "lucide-react";
 import { usePatientStore } from "@/store/usePatientStore";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/routes/paths";
 
-const navItems = [
-  { to: "/agendar", label: "Agendar cita", icon: CalendarPlus },
-  { to: "/citas", label: "Mis citas", icon: ListChecks },
-  { to: "/perfil", label: "Mi perfil", icon: UserRound },
-  { to: "/preguntas", label: "Preguntas y respuestas", icon: CircleHelp },
+const patientNavItems = [
+  { to: ROUTES.booking, label: "Agendar cita", icon: CalendarPlus },
+  { to: ROUTES.appointments, label: "Mis citas", icon: ListChecks },
+  { to: ROUTES.profile, label: "Mi perfil", icon: UserRound },
+  { to: ROUTES.faq, label: "Preguntas y respuestas", icon: CircleHelp },
 ];
+
+const therapistNavItems = [
+  { to: ROUTES.therapistAgenda, label: "Mi agenda", icon: CalendarDays },
+  { to: ROUTES.therapistRevenue, label: "Ingresos", icon: Wallet },
+];
+
+const adminNavItems = [{ to: ROUTES.adminTherapists, label: "Terapeutas", icon: Stethoscope }];
 
 export const Sidebar: React.FC = () => {
   const currentPatient = usePatientStore((s) => s.currentPatient);
+  const currentTherapist = usePatientStore((s) => s.currentTherapist);
+  const currentAdmin = usePatientStore((s) => s.currentAdmin);
+  const role = usePatientStore((s) => s.role);
+
+  const navItems =
+    role === "admin" ? adminNavItems : role === "therapist" ? therapistNavItems : patientNavItems;
+  const displayName =
+    role === "admin"
+      ? currentAdmin?.name || "Administración"
+      : role === "therapist"
+        ? currentTherapist?.name || "Terapeuta"
+        : currentPatient?.fullName.split(" ")[0] || "Paciente";
 
   return (
     <nav className="w-16 sm:w-56 shrink-0 border-r border-border bg-card flex flex-col">
@@ -22,7 +42,7 @@ export const Sidebar: React.FC = () => {
             <HeartHandshake className="w-4 h-4" />
           </div>
           <span className="hidden sm:inline font-display text-sm font-semibold text-foreground truncate">
-            {currentPatient?.fullName.split(" ")[0] || "Paciente"}
+            {displayName}
           </span>
         </div>
 

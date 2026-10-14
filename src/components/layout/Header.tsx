@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePatientStore } from "@/store/usePatientStore";
 import { APP_CONFIG } from "@/data/mockData";
+import { ROUTES } from "@/routes/paths";
 import { toast } from "sonner";
 
 interface HeaderProps {
@@ -14,11 +15,14 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onOpenBreathing }) => {
   const navigate = useNavigate();
   const logout = usePatientStore((s) => s.logout);
+  const role = usePatientStore((s) => s.role);
 
   const handleLogout = () => {
+    // Se lee antes de logout(), que limpia el rol.
+    const loginPath = role === "admin" ? ROUTES.adminLogin : ROUTES.login;
     logout();
     toast.info("Sesión cerrada", { description: "Vuelve pronto." });
-    navigate("/login");
+    navigate(loginPath);
   };
 
   return (

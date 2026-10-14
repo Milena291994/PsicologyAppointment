@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { usePatientStore } from "@/store/usePatientStore";
 import { APP_CONFIG } from "@/data/mockData";
+import { ROUTES } from "@/routes/paths";
 import { Appointment } from "@/types";
 import { toast } from "sonner";
 
@@ -22,6 +23,8 @@ export const AppointmentsPage: React.FC = () => {
   const currentPatient = usePatientStore((s) => s.currentPatient);
   const appointments = usePatientStore((s) => s.appointments);
   const rescheduleAppointment = usePatientStore((s) => s.rescheduleAppointment);
+  const specialists = usePatientStore((s) => s.specialists);
+  const activeSpecialists = specialists.filter((sp) => sp.active);
 
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [newTherapistId, setNewTherapistId] = useState("");
@@ -33,11 +36,13 @@ export const AppointmentsPage: React.FC = () => {
   const ownedIds = new Set([currentPatient.id, ...currentPatient.dependents.map((d) => d.id)]);
   const myAppointments = appointments.filter((a) => ownedIds.has(a.attendeeId));
 
-  const findTherapist = (id: string | null) => APP_CONFIG.specialists.find((sp) => sp.id === id) || null;
+  // Busca entre todos (incluidos inactivos) para seguir mostrando el nombre en citas antiguas.
+  const findTherapist = (id: string | null) => specialists.find((sp) => sp.id === id) || null;
 
   const openReschedule = (appt: Appointment) => {
     setRescheduling(appt);
-    setNewTherapistId(appt.therapistId || APP_CONFIG.specialists[0].id);
+    const currentIsActive = activeSpecialists.some((sp) => sp.id === appt.therapistId);
+    setNewTherapistId(currentIsActive && appt.therapistId ? appt.therapistId : activeSpecialists[0]?.id ?? "");
     setNewDate(appt.date);
     const matchingSlot = APP_CONFIG.defaultSlots.find((s) => s.label === appt.timeLabel);
     setNewTime(matchingSlot?.time || APP_CONFIG.defaultSlots[0].time);
@@ -46,7 +51,11 @@ export const AppointmentsPage: React.FC = () => {
   const confirmReschedule = () => {
     if (!rescheduling || !newTherapistId || !newDate || !newTime) return;
     const slot = APP_CONFIG.defaultSlots.find((s) => s.time === newTime);
-    rescheduleAppointment(rescheduling.id, newTherapistId, newDate, slot?.label || newTime);
+    const result = rescheduleAppointment(rescheduling.id, newTherapistId, newDate, slot?.label || newTime);
+    if (!result.ok) {
+      toast.error("Horario no disponible", { description: result.error });
+      return;
+    }
     toast.success("Cita reagendada", {
       description: `${findTherapist(newTherapistId)?.name} · ${newDate} · ${slot?.label || newTime}`,
     });
@@ -55,7 +64,8 @@ export const AppointmentsPage: React.FC = () => {
 
   const originalTherapist = findTherapist(rescheduling?.therapistId ?? null);
   const newTherapist = findTherapist(newTherapistId);
-  const priceChanged = !!originalTherapist && !!newTherapist && originalTherapist.price !== newTherapist.price;
+  // Se compara contra lo efectivamente pagado: el admin puede haber cambiado el precio desde la reserva.
+  const priceChanged = !!rescheduling && !!newTherapist && rescheduling.amountPaid !== newTherapist.price;
 
   return (
     <div>
@@ -71,7 +81,7 @@ export const AppointmentsPage: React.FC = () => {
           <CalendarClock className="w-10 h-10 text-primary mx-auto" />
           <p className="text-sm text-muted-foreground">Todavía no tienes citas agendadas.</p>
           <Button asChild className="gap-2">
-            <Link to="/agendar">
+            <Link to={ROUTES.booking}>
               <CalendarPlus className="w-4 h-4" />
               <span>Agendar mi primera cita</span>
             </Link>
@@ -137,7 +147,7 @@ export const AppointmentsPage: React.FC = () => {
                 onChange={(e) => setNewTherapistId(e.target.value)}
                 className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {APP_CONFIG.specialists.map((sp) => (
+                {activeSpecialists.map((sp) => (
                   <option key={sp.id} value={sp.id}>
                     {sp.name} — {sp.title} ({sp.currencySymbol}{sp.price.toFixed(2)})
                   </option>
@@ -147,7 +157,7 @@ export const AppointmentsPage: React.FC = () => {
                 <p className="text-[11px] text-muted-foreground mt-1.5">
                   La sesión con {newTherapist?.name} cuesta {newTherapist?.currencySymbol}
                   {newTherapist?.price.toFixed(2)}; la cita original se pagó a {originalTherapist?.currencySymbol}
-                  {originalTherapist?.price.toFixed(2)}.
+                  {rescheduling?.amountPaid.toFixed(2)}.
                 </p>
               )}
             </div>
