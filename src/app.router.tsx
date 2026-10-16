@@ -9,6 +9,7 @@ import { ProfilePage } from "@/pages/ProfilePage";
 import { FaqPage } from "@/pages/FaqPage";
 import { TherapistAgendaPage } from "@/pages/TherapistAgendaPage";
 import { TherapistRevenuePage } from "@/pages/TherapistRevenuePage";
+import { TherapistSchedulePage } from "@/pages/TherapistSchedulePage";
 import { AdminLoginPage } from "@/pages/AdminLoginPage";
 import { AdminTherapistsPage } from "@/pages/AdminTherapistsPage";
 import { usePatientStore } from "@/store/usePatientStore";
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
         children: [
           { path: ROUTES.therapistAgenda, element: <TherapistAgendaPage /> },
           { path: ROUTES.therapistRevenue, element: <TherapistRevenuePage /> },
+          { path: ROUTES.therapistSchedule, element: <TherapistSchedulePage /> },
         ],
       },
     ],

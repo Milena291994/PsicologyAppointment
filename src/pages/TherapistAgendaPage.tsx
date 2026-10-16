@@ -4,6 +4,7 @@ import {
   Search,
   IdCard,
   RefreshCw,
+  Ban,
   Video,
   MapPin,
   X,
@@ -16,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   Dialog,
@@ -26,10 +28,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { usePatientStore } from "@/store/usePatientStore";
-import { APP_CONFIG } from "@/data/mockData";
 import { Appointment } from "@/types";
-import { formatShortDate, parseDateKey, todayKey } from "@/lib/date";
+import { formatShortDate, todayKey } from "@/lib/date";
 import { exportAgendaToExcel } from "@/lib/exportAgenda";
+import { labelToMinutes, offeredSlotLabels, takenSlotLabels } from "@/lib/schedule";
 import { toast } from "sonner";
 
 const nativeFieldClass =
@@ -40,22 +42,22 @@ function normalize(text: string): string {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 }
 
-function slotOrder(timeLabel: string): number {
-  const index = APP_CONFIG.defaultSlots.findIndex((s) => s.label === timeLabel);
-  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
-}
+type StatusFilter = "active" | "cancelled" | "all";
 
 export const TherapistAgendaPage: React.FC = () => {
   const currentTherapist = usePatientStore((s) => s.currentTherapist);
   const appointments = usePatientStore((s) => s.appointments);
   const rescheduleAppointment = usePatientStore((s) => s.rescheduleAppointment);
+  const cancelAppointment = usePatientStore((s) => s.cancelAppointment);
 
   const today = todayKey();
   const [dateFilter, setDateFilter] = useState(today);
   const [nameFilter, setNameFilter] = useState("");
   const [idFilter, setIdFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
 
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
+  const [cancelling, setCancelling] = useState<Appointment | null>(null);
   const [newDate, setNewDate] = useState("");
   const [newTimeLabel, setNewTimeLabel] = useState("");
   const [isExporting, setIsExporting] = useState(false);
@@ -72,17 +74,19 @@ export const TherapistAgendaPage: React.FC = () => {
       .filter((a) => !dateFilter || a.date === dateFilter)
       .filter((a) => !name || normalize(a.attendeeName).includes(name))
       .filter((a) => !id || a.attendeeIdentification.includes(id))
-      .sort((a, b) => a.date.localeCompare(b.date) || slotOrder(a.timeLabel) - slotOrder(b.timeLabel));
-  }, [myAppointments, dateFilter, nameFilter, idFilter]);
+      .filter((a) => statusFilter === "all" || a.status === statusFilter)
+      .sort((a, b) => a.date.localeCompare(b.date) || labelToMinutes(a.timeLabel) - labelToMinutes(b.timeLabel));
+  }, [myAppointments, dateFilter, nameFilter, idFilter, statusFilter]);
 
   if (!currentTherapist) return null;
 
-  const hasFilters = dateFilter !== today || nameFilter !== "" || idFilter !== "";
+  const hasFilters = dateFilter !== today || nameFilter !== "" || idFilter !== "" || statusFilter !== "active";
 
   const clearFilters = () => {
     setDateFilter(today);
     setNameFilter("");
     setIdFilter("");
+    setStatusFilter("active");
   };
 
   const handleExport = async () => {
@@ -99,18 +103,32 @@ export const TherapistAgendaPage: React.FC = () => {
     }
   };
 
+  const confirmCancel = () => {
+    if (!cancelling) return;
+    const result = cancelAppointment(cancelling.id);
+    if (!result.ok) {
+      toast.error("No se pudo cancelar", { description: result.error });
+      return;
+    }
+    toast.success("Cita cancelada", {
+      description: `${cancelling.attendeeName} · ${formatShortDate(cancelling.date)} · ${cancelling.timeLabel}`,
+    });
+    setCancelling(null);
+  };
+
   const openReschedule = (appt: Appointment) => {
     setRescheduling(appt);
     setNewDate(appt.date < today ? today : appt.date);
     setNewTimeLabel(appt.timeLabel);
   };
 
-  /** Horarios ya ocupados por otras citas del terapeuta en la fecha elegida. */
-  const takenLabels = new Set(
-    myAppointments
-      .filter((a) => a.id !== rescheduling?.id && a.date === newDate)
-      .map((a) => a.timeLabel)
-  );
+  // Horarios de mi horario semanal para la fecha elegida (vacío si el día está cancelado);
+  // los ocupados por otras citas activas se listan deshabilitados.
+  const slotLabels = newDate ? offeredSlotLabels(currentTherapist, newDate) : [];
+  const takenLabels = newDate
+    ? takenSlotLabels(appointments, currentTherapist.id, newDate, rescheduling?.id)
+    : new Set<string>();
+  const hasFreeSlot = slotLabels.some((label) => !takenLabels.has(label));
 
   const confirmReschedule = () => {
     if (!rescheduling || !newDate || !newTimeLabel) return;
@@ -119,11 +137,18 @@ export const TherapistAgendaPage: React.FC = () => {
       toast.error("Fecha no válida", { description: "No puedes reprogramar una cita a una fecha pasada." });
       return;
     }
-    if (APP_CONFIG.disabledDaysOfWeek.includes(parseDateKey(newDate).getDay())) {
-      toast.error("Consultorio cerrado", { description: "Ese día no hay atención. Elige otra fecha." });
+    if (currentTherapist.cancelledDates.includes(newDate)) {
+      toast.error("Día cancelado", { description: "Cancelaste la atención ese día. Elige otra fecha." });
       return;
     }
-    if (newDate === rescheduling.date && newTimeLabel === rescheduling.timeLabel) {
+    if (!slotLabels.includes(newTimeLabel)) {
+      toast.error("Sin atención en ese horario", {
+        description: "Ese horario no está en tu horario semanal para esa fecha. Elige otro.",
+      });
+      return;
+    }
+    // Una cita cancelada sí puede reactivarse en su mismo día y horario.
+    if (rescheduling.status === "active" && newDate === rescheduling.date && newTimeLabel === rescheduling.timeLabel) {
       toast.info("Sin cambios", { description: "Elige una fecha u horario distinto al actual." });
       return;
     }
@@ -151,7 +176,14 @@ export const TherapistAgendaPage: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <Card className="p-4 sm:p-5 mb-4">
+      <Card className="p-4 sm:p-5 mb-4 space-y-4">
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+          <TabsList>
+            <TabsTrigger value="active">Activas</TabsTrigger>
+            <TabsTrigger value="cancelled">Canceladas</TabsTrigger>
+            <TabsTrigger value="all">Todas</TabsTrigger>
+          </TabsList>
+        </Tabs>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)_auto] gap-3 items-end">
           <div>
             <Label htmlFor="filter-date">Fecha</Label>
@@ -272,7 +304,7 @@ export const TherapistAgendaPage: React.FC = () => {
             </TableHeader>
             <TableBody>
               {filtered.map((appt) => (
-                <TableRow key={appt.id}>
+                <TableRow key={appt.id} className={appt.status === "cancelled" ? "bg-muted/40" : undefined}>
                   <TableCell className="whitespace-nowrap text-muted-foreground">{formatShortDate(appt.date)}</TableCell>
                   <TableCell className="whitespace-nowrap font-semibold text-foreground tabular-nums">
                     {appt.timeLabel}
@@ -283,6 +315,11 @@ export const TherapistAgendaPage: React.FC = () => {
                       {appt.attendeeType === "dependent" && (
                         <Badge variant="secondary" className="text-[10px]">
                           Menor
+                        </Badge>
+                      )}
+                      {appt.status === "cancelled" && (
+                        <Badge variant="destructive" className="text-[10px]">
+                          Cancelada
                         </Badge>
                       )}
                     </div>
@@ -306,10 +343,23 @@ export const TherapistAgendaPage: React.FC = () => {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => openReschedule(appt)} className="gap-1.5">
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Reprogramar</span>
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openReschedule(appt)} className="gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Reprogramar</span>
+                      </Button>
+                      {appt.status === "active" && appt.date >= today && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCancelling(appt)}
+                          className="gap-1.5 text-destructive hover:text-destructive"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                          <span>Cancelar</span>
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -317,6 +367,31 @@ export const TherapistAgendaPage: React.FC = () => {
           </Table>
         )}
       </Card>
+
+      <Dialog open={!!cancelling} onOpenChange={(open) => !open && setCancelling(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar cita</DialogTitle>
+            <DialogDescription>
+              {cancelling && (
+                <>
+                  Se cancelará la cita de {cancelling.attendeeName} del {formatShortDate(cancelling.date)} a las{" "}
+                  {cancelling.timeLabel}. El paciente la verá como cancelada y podrás reprogramarla desde el filtro
+                  "Canceladas".
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelling(null)}>
+              Volver
+            </Button>
+            <Button variant="destructive" onClick={confirmCancel}>
+              Cancelar cita
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!rescheduling} onOpenChange={(open) => !open && setRescheduling(null)}>
         <DialogContent>
@@ -351,13 +426,16 @@ export const TherapistAgendaPage: React.FC = () => {
                 id="reschedule-time"
                 value={newTimeLabel}
                 onChange={(e) => setNewTimeLabel(e.target.value)}
-                className={nativeFieldClass}
+                disabled={!hasFreeSlot}
+                className={`${nativeFieldClass} disabled:opacity-60`}
               >
-                {APP_CONFIG.defaultSlots.map((slot) => {
-                  const taken = takenLabels.has(slot.label);
+                {!hasFreeSlot && <option value="">Sin horarios disponibles en esta fecha</option>}
+                {hasFreeSlot && !slotLabels.includes(newTimeLabel) && <option value="">Elige un horario</option>}
+                {slotLabels.map((label) => {
+                  const taken = takenLabels.has(label);
                   return (
-                    <option key={slot.time} value={slot.label} disabled={taken}>
-                      {slot.label}
+                    <option key={label} value={label} disabled={taken}>
+                      {label}
                       {taken ? " — ocupado" : ""}
                     </option>
                   );
@@ -370,7 +448,12 @@ export const TherapistAgendaPage: React.FC = () => {
             <Button variant="outline" onClick={() => setRescheduling(null)}>
               Cancelar
             </Button>
-            <Button onClick={confirmReschedule}>Confirmar nuevo horario</Button>
+            <Button
+              onClick={confirmReschedule}
+              disabled={!hasFreeSlot || !slotLabels.includes(newTimeLabel) || takenLabels.has(newTimeLabel)}
+            >
+              Confirmar nuevo horario
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

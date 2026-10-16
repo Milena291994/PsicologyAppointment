@@ -484,7 +484,7 @@ export const Step3Patient: React.FC<Step3PatientProps> = ({
               <div>
                 <span className="text-muted-foreground block text-[11px]">Horario y Duración:</span>
                 <span className="font-semibold text-foreground">
-                  {selectedTimeLabel ? `${selectedTimeLabel} (50 min)` : "—"}
+                  {selectedTimeLabel ? `${selectedTimeLabel} (${selectedTherapist?.slotIntervalMinutes} min)` : "—"}
                 </span>
               </div>
             </div>

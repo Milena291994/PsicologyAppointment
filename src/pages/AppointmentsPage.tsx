@@ -14,8 +14,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { usePatientStore } from "@/store/usePatientStore";
-import { APP_CONFIG } from "@/data/mockData";
 import { ROUTES } from "@/routes/paths";
+import { todayKey } from "@/lib/date";
+import { offeredSlotLabels, takenSlotLabels } from "@/lib/schedule";
 import { Appointment } from "@/types";
 import { toast } from "sonner";
 
@@ -29,7 +30,7 @@ export const AppointmentsPage: React.FC = () => {
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [newTherapistId, setNewTherapistId] = useState("");
   const [newDate, setNewDate] = useState("");
-  const [newTime, setNewTime] = useState("");
+  const [newTimeLabel, setNewTimeLabel] = useState("");
 
   if (!currentPatient) return null;
 
@@ -43,21 +44,19 @@ export const AppointmentsPage: React.FC = () => {
     setRescheduling(appt);
     const currentIsActive = activeSpecialists.some((sp) => sp.id === appt.therapistId);
     setNewTherapistId(currentIsActive && appt.therapistId ? appt.therapistId : activeSpecialists[0]?.id ?? "");
-    setNewDate(appt.date);
-    const matchingSlot = APP_CONFIG.defaultSlots.find((s) => s.label === appt.timeLabel);
-    setNewTime(matchingSlot?.time || APP_CONFIG.defaultSlots[0].time);
+    setNewDate(appt.date < todayKey() ? todayKey() : appt.date);
+    setNewTimeLabel(appt.timeLabel);
   };
 
   const confirmReschedule = () => {
-    if (!rescheduling || !newTherapistId || !newDate || !newTime) return;
-    const slot = APP_CONFIG.defaultSlots.find((s) => s.time === newTime);
-    const result = rescheduleAppointment(rescheduling.id, newTherapistId, newDate, slot?.label || newTime);
+    if (!rescheduling || !newTherapistId || !newDate || !newTimeLabel) return;
+    const result = rescheduleAppointment(rescheduling.id, newTherapistId, newDate, newTimeLabel);
     if (!result.ok) {
       toast.error("Horario no disponible", { description: result.error });
       return;
     }
     toast.success("Cita reagendada", {
-      description: `${findTherapist(newTherapistId)?.name} · ${newDate} · ${slot?.label || newTime}`,
+      description: `${findTherapist(newTherapistId)?.name} · ${newDate} · ${newTimeLabel}`,
     });
     setRescheduling(null);
   };
@@ -66,6 +65,14 @@ export const AppointmentsPage: React.FC = () => {
   const newTherapist = findTherapist(newTherapistId);
   // Se compara contra lo efectivamente pagado: el admin puede haber cambiado el precio desde la reserva.
   const priceChanged = !!rescheduling && !!newTherapist && rescheduling.amountPaid !== newTherapist.price;
+
+  // Horarios del terapeuta destino para la fecha elegida; los ocupados se listan deshabilitados.
+  const slotLabels = newTherapist && newDate ? offeredSlotLabels(newTherapist, newDate) : [];
+  const takenLabels =
+    newTherapist && newDate
+      ? takenSlotLabels(appointments, newTherapist.id, newDate, rescheduling?.id)
+      : new Set<string>();
+  const hasFreeSlot = slotLabels.some((label) => !takenLabels.has(label));
 
   return (
     <div>
@@ -97,6 +104,11 @@ export const AppointmentsPage: React.FC = () => {
                   <Badge variant="secondary" className="text-[10px] font-mono">
                     {appt.bookingCode}
                   </Badge>
+                  {appt.status === "cancelled" && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      Cancelada por el terapeuta
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                   {findTherapist(appt.therapistId) && (
@@ -120,10 +132,13 @@ export const AppointmentsPage: React.FC = () => {
                 </div>
               </div>
 
-              <Button variant="outline" size="sm" onClick={() => openReschedule(appt)} className="gap-1.5 shrink-0">
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Reagendar</span>
-              </Button>
+              {/* Una cita cancelada solo la reprograma el terapeuta. */}
+              {appt.status === "active" && (
+                <Button variant="outline" size="sm" onClick={() => openReschedule(appt)} className="gap-1.5 shrink-0">
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Reagendar</span>
+                </Button>
+              )}
             </Card>
           ))}
         </div>
@@ -167,6 +182,7 @@ export const AppointmentsPage: React.FC = () => {
               <input
                 id="reschedule-date"
                 type="date"
+                min={todayKey()}
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
                 className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -177,21 +193,33 @@ export const AppointmentsPage: React.FC = () => {
               <Label htmlFor="reschedule-time">Nuevo horario</Label>
               <select
                 id="reschedule-time"
-                value={newTime}
-                onChange={(e) => setNewTime(e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={newTimeLabel}
+                onChange={(e) => setNewTimeLabel(e.target.value)}
+                disabled={!hasFreeSlot}
+                className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
               >
-                {APP_CONFIG.defaultSlots.map((slot) => (
-                  <option key={slot.time} value={slot.time}>
-                    {slot.label}
-                  </option>
-                ))}
+                {!hasFreeSlot && <option value="">Sin horarios disponibles en esta fecha</option>}
+                {hasFreeSlot && !slotLabels.includes(newTimeLabel) && <option value="">Elige un horario</option>}
+                {slotLabels.map((label) => {
+                  const taken = takenLabels.has(label);
+                  return (
+                    <option key={label} value={label} disabled={taken}>
+                      {label}
+                      {taken ? " — ocupado" : ""}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
 
           <DialogFooter>
-            <Button onClick={confirmReschedule}>Confirmar nuevo horario</Button>
+            <Button
+              onClick={confirmReschedule}
+              disabled={!hasFreeSlot || !slotLabels.includes(newTimeLabel) || takenLabels.has(newTimeLabel)}
+            >
+              Confirmar nuevo horario
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

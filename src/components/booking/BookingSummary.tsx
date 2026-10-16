@@ -47,7 +47,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
                 Horario
               </span>
               <span className="font-medium text-foreground">
-                {selectedTimeLabel ? `${selectedTimeLabel} (50 min)` : "Por seleccionar"}
+                {selectedTimeLabel ? `${selectedTimeLabel} (${selectedTherapist?.slotIntervalMinutes} min)` : "Por seleccionar"}
               </span>
             </div>
           </div>
