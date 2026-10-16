@@ -30,10 +30,20 @@ export async function exportAgendaToExcel(
     Cédula: a.attendeeIdentification,
     Modalidad: a.modality === "online" ? "Videoconsulta" : "Presencial",
     Código: a.bookingCode,
+    Estado: a.status === "cancelled" ? "Cancelada" : "Activa",
   }));
 
   const sheet = XLSX.utils.json_to_sheet(rows);
-  sheet["!cols"] = [{ wch: 20 }, { wch: 10 }, { wch: 32 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 12 }];
+  sheet["!cols"] = [
+    { wch: 20 },
+    { wch: 10 },
+    { wch: 32 },
+    { wch: 20 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 12 },
+    { wch: 12 },
+  ];
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "Agenda");

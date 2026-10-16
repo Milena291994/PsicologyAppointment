@@ -73,7 +73,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
           <div className="flex justify-between">
             <span className="text-muted-foreground">Hora:</span>
             <span className="font-semibold text-foreground">
-              {selectedTimeLabel ? `${selectedTimeLabel} (50 min)` : "—"}
+              {selectedTimeLabel ? `${selectedTimeLabel} (${selectedTherapist?.slotIntervalMinutes} min)` : "—"}
             </span>
           </div>
           <div className="flex justify-between">

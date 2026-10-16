@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { CalendarPlus, ListChecks, HeartHandshake, UserRound, CircleHelp, CalendarDays, Wallet, Stethoscope } from "lucide-react";
+import { CalendarPlus, ListChecks, HeartHandshake, UserRound, CircleHelp, CalendarDays, Wallet, Stethoscope, Clock } from "lucide-react";
 import { usePatientStore } from "@/store/usePatientStore";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/routes/paths";
@@ -14,6 +14,7 @@ const patientNavItems = [
 
 const therapistNavItems = [
   { to: ROUTES.therapistAgenda, label: "Mi agenda", icon: CalendarDays },
+  { to: ROUTES.therapistSchedule, label: "Mis horarios", icon: Clock },
   { to: ROUTES.therapistRevenue, label: "Ingresos", icon: Wallet },
 ];
 

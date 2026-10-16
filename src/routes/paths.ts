@@ -10,6 +10,7 @@ export const ROUTES = {
   faq: "/preguntas",
   therapistAgenda: "/terapeuta/agenda",
   therapistRevenue: "/terapeuta/ingresos",
+  therapistSchedule: "/terapeuta/horarios",
   adminLogin: "/admin/login",
   adminTherapists: "/admin/terapeutas",
 } as const;

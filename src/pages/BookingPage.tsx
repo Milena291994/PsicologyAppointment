@@ -11,11 +11,13 @@ import { PayphoneModal } from "@/components/booking/PayphoneModal";
 import { SuccessScreen } from "@/components/booking/SuccessScreen";
 import { Modality, PatientFormData, AttendeeSelection } from "@/types";
 import { usePatientStore } from "@/store/usePatientStore";
+import { hasAvailability } from "@/lib/schedule";
 import { toast } from "sonner";
 
 export function BookingPage() {
   const currentPatient = usePatientStore((s) => s.currentPatient);
   const addAppointment = usePatientStore((s) => s.addAppointment);
+  const appointments = usePatientStore((s) => s.appointments);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [selectedTherapistId, setSelectedTherapistId] = useState<string | null>(null);
@@ -56,6 +58,17 @@ export function BookingPage() {
           ? "Plataforma segura y encriptada (Meet / Zoom Salud)."
           : "Consultorio 302, Edificio Árbol de Vida.",
     });
+  };
+
+  /** Al cambiar de terapeuta se descarta el horario y, si la fecha ya no tiene cupo con él, también la fecha. */
+  const handleSelectTherapist = (id: string) => {
+    setSelectedTherapistId(id);
+    setSelectedTime(null);
+    setSelectedTimeLabel(null);
+    const therapist = specialists.find((sp) => sp.id === id);
+    if (selectedDate && !(therapist && hasAvailability(therapist, appointments, selectedDate))) {
+      setSelectedDate(null);
+    }
   };
 
   const handleSelectTime = (time: string, label: string) => {
@@ -133,7 +146,7 @@ export function BookingPage() {
               {currentStep === 1 && (
                 <Step1Date
                   selectedTherapistId={selectedTherapistId}
-                  onSelectTherapist={setSelectedTherapistId}
+                  onSelectTherapist={handleSelectTherapist}
                   selectedDate={selectedDate}
                   onSelectDate={(d) => {
                     setSelectedDate(d);
@@ -146,6 +159,8 @@ export function BookingPage() {
 
               {currentStep === 2 && (
                 <Step2Time
+                  therapist={selectedTherapist}
+                  dateKey={selectedDate}
                   selectedTime={selectedTime}
                   onSelectTime={handleSelectTime}
                   onBack={() => setCurrentStep(1)}

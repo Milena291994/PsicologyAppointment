@@ -22,6 +22,31 @@ export interface Specialist {
   languages: string[];
   /** false = oculto al reservar/reprogramar y sin acceso al login. */
   active: boolean;
+  weeklySchedule: WeeklySchedule;
+  /** Duración de cada cita en minutos (múltiplo de 5, 15–180); también es el paso entre citas (sin descansos). */
+  slotIntervalMinutes: number;
+  /** Fechas (YYYY-MM-DD) que el terapeuta canceló completas; no aceptan reservas. */
+  cancelledDates: string[];
+  /** Tramos bloqueados en fechas concretas; los horarios que se solapan no se ofrecen. */
+  timeBlocks: TimeBlock[];
+}
+
+export type AppointmentStatus = "active" | "cancelled";
+
+/** Rango de atención de un día, horas "HH:mm" en 24 h. */
+export interface DayRange {
+  start: string;
+  end: string;
+}
+
+/** 0 = domingo … 6 = sábado; null = ese día no atiende. */
+export type WeeklySchedule = Record<number, DayRange | null>;
+
+/** Tramo bloqueado en una fecha concreta, horas "HH:mm" en 24 h. */
+export interface TimeBlock {
+  date: string;
+  start: string;
+  end: string;
 }
 
 export type Sex = "femenino" | "masculino" | "intersexual" | "no_indica";
@@ -101,6 +126,9 @@ export interface Appointment {
   amountPaid: number;
   /** Momento del pago (ISO); la pantalla de ingresos agrupa por esta fecha, no por la de la sesión. */
   createdAt: string;
+  status: AppointmentStatus;
+  /** Momento de la cancelación (ISO); se borra al reprogramar. */
+  cancelledAt?: string;
 }
 
 export interface AttendeeSelection {
@@ -148,6 +176,4 @@ export interface AppConfig {
   registeredPatients: Patient[];
   therapistAccounts: TherapistAccount[];
   adminAccounts: AdminAccount[];
-  defaultSlots: TimeSlot[];
-  disabledDaysOfWeek: number[];
 }

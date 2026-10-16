@@ -157,7 +157,8 @@ export const TherapistRevenuePage: React.FC = () => {
   const today = todayKey();
 
   const myPayments = useMemo(
-    () => appointments.filter((a) => a.therapistId === currentTherapist?.id),
+    // Las canceladas no cuentan como ingreso (el reembolso se asume fuera del sistema); si se reprograman vuelven a sumar.
+    () => appointments.filter((a) => a.therapistId === currentTherapist?.id && a.status === "active"),
     [appointments, currentTherapist]
   );
 

@@ -8,10 +8,22 @@ import {
   Modality,
   Specialist,
   TherapistAccount,
+  WeeklySchedule,
+  TimeBlock,
   UserRole,
 } from "@/types";
 import { APP_CONFIG, SEED_APPOINTMENTS } from "@/data/mockData";
 import { isMinor } from "@/lib/age";
+import { todayKey } from "@/lib/date";
+import { labelToMinutes, offeredSlotLabels, takenSlotLabels, timeToMinutes } from "@/lib/schedule";
+
+const OWN_APPOINTMENTS_ONLY = "Solo puedes gestionar tus propias citas.";
+const WEEKDAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+/** "HH:mm" en 24 h, como lo producen los inputs type="time". */
+function isValidTime(time: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(time);
+}
 
 export interface RegisterInput {
   identification: string;
@@ -93,6 +105,13 @@ interface PatientStoreState {
   createTherapist: (data: TherapistInput) => { ok: boolean; error?: string };
   updateTherapist: (id: string, data: TherapistInput) => { ok: boolean; error?: string };
   setTherapistActive: (id: string, active: boolean) => void;
+  /** Acciones del rol therapist: operan siempre sobre `currentTherapist` y solo sobre sus propias citas. */
+  updateWeeklySchedule: (schedule: WeeklySchedule, slotIntervalMinutes: number) => { ok: boolean; error?: string };
+  addTimeBlock: (block: TimeBlock) => { ok: boolean; error?: string };
+  removeTimeBlock: (block: TimeBlock) => { ok: boolean; error?: string };
+  cancelDay: (dateKey: string) => { ok: boolean; error?: string; cancelledCount?: number };
+  reopenDay: (dateKey: string) => { ok: boolean; error?: string };
+  cancelAppointment: (id: string) => { ok: boolean; error?: string };
 }
 
 let idCounter = 0;
@@ -278,21 +297,51 @@ export const usePatientStore = create<PatientStoreState>((set, get) => ({
       ...appt,
       id: nextId("apt"),
       createdAt: new Date().toISOString(),
+      status: "active",
     };
     set((state) => ({ appointments: [...state.appointments, appointment] }));
   },
 
   rescheduleAppointment: (id, therapistId, date, timeLabel) => {
-    const taken = get().appointments.some(
-      (a) => a.id !== id && a.therapistId === therapistId && a.date === date && a.timeLabel === timeLabel
-    );
-    if (taken) {
+    const { appointments, specialists, role, currentTherapist } = get();
+    const appointment = appointments.find((a) => a.id === id);
+    if (!appointment) {
+      return { ok: false, error: "La cita no existe." };
+    }
+
+    // El terapeuta solo gestiona sus propias citas y no puede pasarlas a otro terapeuta.
+    if (role === "therapist") {
+      if (!currentTherapist || appointment.therapistId !== currentTherapist.id || therapistId !== currentTherapist.id) {
+        return { ok: false, error: OWN_APPOINTMENTS_ONLY };
+      }
+    }
+    if (role === "patient" && appointment.status === "cancelled") {
+      return { ok: false, error: "Esta cita fue cancelada por el terapeuta y solo él puede reprogramarla." };
+    }
+
+    const target = specialists.find((sp) => sp.id === therapistId);
+    if (!target) {
+      return { ok: false, error: "El terapeuta no existe." };
+    }
+    if (date < todayKey()) {
+      return { ok: false, error: "No puedes reprogramar una cita a una fecha pasada." };
+    }
+    if (target.cancelledDates.includes(date)) {
+      return { ok: false, error: "El terapeuta canceló la atención ese día. Elige otra fecha." };
+    }
+    if (!offeredSlotLabels(target, date).includes(timeLabel)) {
+      return { ok: false, error: "El terapeuta no atiende en ese horario. Elige otra fecha u hora." };
+    }
+    if (takenSlotLabels(appointments, therapistId, date, id).has(timeLabel)) {
       return { ok: false, error: "El terapeuta ya tiene otra cita en ese horario. Elige otra fecha u hora." };
     }
 
     set((state) => ({
       appointments: state.appointments.map((a) =>
-        a.id === id ? { ...a, therapistId, date, timeLabel } : a
+        a.id === id
+          ? // Reprogramar reactiva una cita cancelada.
+            { ...a, therapistId, date, timeLabel, status: "active" as const, cancelledAt: undefined }
+          : a
       ),
     }));
     return { ok: true };
@@ -319,6 +368,11 @@ export const usePatientStore = create<PatientStoreState>((set, get) => ({
       currencySymbol: "$",
       languages: ["Español"],
       active: true,
+      // Sin horario hasta que el propio terapeuta lo configure en "Mis horarios" (SPEC 02).
+      weeklySchedule: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null, 6: null },
+      slotIntervalMinutes: 60,
+      cancelledDates: [],
+      timeBlocks: [],
     };
     const account: TherapistAccount = {
       specialistId: specialist.id,
@@ -372,7 +426,189 @@ export const usePatientStore = create<PatientStoreState>((set, get) => ({
       specialists: state.specialists.map((sp) => (sp.id === id ? { ...sp, active } : sp)),
     }));
   },
+
+  updateWeeklySchedule: (schedule, slotIntervalMinutes) => {
+    const { currentTherapist, appointments } = get();
+    if (!currentTherapist) return { ok: false, error: OWN_APPOINTMENTS_ONLY };
+
+    if (!Number.isInteger(slotIntervalMinutes) || slotIntervalMinutes % 5 !== 0 || slotIntervalMinutes < 15 || slotIntervalMinutes > 180) {
+      return { ok: false, error: "El intervalo de cita debe ser un múltiplo de 5 entre 15 y 180 minutos." };
+    }
+
+    const next: WeeklySchedule = {};
+    for (let day = 0; day <= 6; day++) {
+      const range = schedule[day] ?? null;
+      if (range) {
+        if (!isValidTime(range.start) || !isValidTime(range.end) || timeToMinutes(range.start) >= timeToMinutes(range.end)) {
+          return { ok: false, error: `${WEEKDAY_NAMES[day]}: la hora desde debe ser anterior a la hora hasta.` };
+        }
+        if (timeToMinutes(range.end) - timeToMinutes(range.start) < slotIntervalMinutes) {
+          return { ok: false, error: `${WEEKDAY_NAMES[day]}: el rango no alcanza para una cita de ${slotIntervalMinutes} minutos.` };
+        }
+      }
+      next[day] = range ? { start: range.start, end: range.end } : null;
+    }
+
+    // Ninguna cita activa futura puede quedar fuera de los horarios que generaría el nuevo horario.
+    const draft = { ...currentTherapist, weeklySchedule: next, slotIntervalMinutes };
+    const today = todayKey();
+    const outside = appointments.filter(
+      (a) =>
+        a.therapistId === currentTherapist.id &&
+        a.status === "active" &&
+        a.date >= today &&
+        !offeredSlotLabels(draft, a.date).includes(a.timeLabel)
+    ).length;
+    if (outside > 0) {
+      return {
+        ok: false,
+        error: `Hay ${outside} ${outside === 1 ? "cita agendada que quedaría" : "citas agendadas que quedarían"} fuera del nuevo horario. Reprográmalas o cancélalas primero.`,
+      };
+    }
+
+    set((state) => updateCurrentSpecialist(state, (sp) => ({ ...sp, weeklySchedule: next, slotIntervalMinutes })));
+    return { ok: true };
+  },
+
+  addTimeBlock: (block) => {
+    const { currentTherapist, appointments } = get();
+    if (!currentTherapist) return { ok: false, error: OWN_APPOINTMENTS_ONLY };
+
+    if (!block.date || block.date < todayKey()) {
+      return { ok: false, error: "Solo puedes bloquear horarios de hoy o fechas futuras." };
+    }
+    if (!isValidTime(block.start) || !isValidTime(block.end) || timeToMinutes(block.start) >= timeToMinutes(block.end)) {
+      return { ok: false, error: "La hora desde debe ser anterior a la hora hasta." };
+    }
+
+    const start = timeToMinutes(block.start);
+    const end = timeToMinutes(block.end);
+    const overlapsBlock = currentTherapist.timeBlocks.some(
+      (b) => b.date === block.date && start < timeToMinutes(b.end) && end > timeToMinutes(b.start)
+    );
+    if (overlapsBlock) {
+      return { ok: false, error: "Ya tienes un bloqueo que se cruza con ese tramo en esa fecha." };
+    }
+
+    // Una cita ocupa [inicio, inicio + intervalo); no se puede bloquear encima de una cita activa.
+    const interval = currentTherapist.slotIntervalMinutes;
+    const conflicts = appointments.filter((a) => {
+      if (a.therapistId !== currentTherapist.id || a.status !== "active" || a.date !== block.date) return false;
+      const apptStart = labelToMinutes(a.timeLabel);
+      return apptStart < end && apptStart + interval > start;
+    }).length;
+    if (conflicts > 0) {
+      return {
+        ok: false,
+        error: `Hay ${conflicts} ${conflicts === 1 ? "cita agendada" : "citas agendadas"} en ese tramo. Reprográmalas o cancélalas primero.`,
+      };
+    }
+
+    set((state) =>
+      updateCurrentSpecialist(state, (sp) => ({
+        ...sp,
+        timeBlocks: [...sp.timeBlocks, { date: block.date, start: block.start, end: block.end }].sort(
+          (a, b) => a.date.localeCompare(b.date) || timeToMinutes(a.start) - timeToMinutes(b.start)
+        ),
+      }))
+    );
+    return { ok: true };
+  },
+
+  removeTimeBlock: (block) => {
+    const { currentTherapist } = get();
+    if (!currentTherapist) return { ok: false, error: OWN_APPOINTMENTS_ONLY };
+
+    set((state) =>
+      updateCurrentSpecialist(state, (sp) => ({
+        ...sp,
+        timeBlocks: sp.timeBlocks.filter(
+          (b) => !(b.date === block.date && b.start === block.start && b.end === block.end)
+        ),
+      }))
+    );
+    return { ok: true };
+  },
+
+  cancelDay: (dateKey) => {
+    const { currentTherapist } = get();
+    if (!currentTherapist) return { ok: false, error: OWN_APPOINTMENTS_ONLY };
+    if (dateKey < todayKey()) {
+      return { ok: false, error: "Solo puedes cancelar el día de hoy o fechas futuras." };
+    }
+    if (currentTherapist.cancelledDates.includes(dateKey)) {
+      return { ok: true, cancelledCount: 0 };
+    }
+
+    const isAffected = (a: Appointment) =>
+      a.therapistId === currentTherapist.id && a.date === dateKey && a.status === "active";
+    const cancelledCount = get().appointments.filter(isAffected).length;
+    const cancelledAt = new Date().toISOString();
+
+    set((state) => ({
+      ...updateCurrentSpecialist(state, (sp) => ({
+        ...sp,
+        cancelledDates: [...sp.cancelledDates, dateKey].sort(),
+      })),
+      appointments: state.appointments.map((a) =>
+        isAffected(a) ? { ...a, status: "cancelled" as const, cancelledAt } : a
+      ),
+    }));
+    return { ok: true, cancelledCount };
+  },
+
+  reopenDay: (dateKey) => {
+    const { currentTherapist } = get();
+    if (!currentTherapist) return { ok: false, error: OWN_APPOINTMENTS_ONLY };
+
+    // Las citas canceladas ese día siguen canceladas; se reprograman una a una desde "Mi agenda".
+    set((state) =>
+      updateCurrentSpecialist(state, (sp) => ({
+        ...sp,
+        cancelledDates: sp.cancelledDates.filter((d) => d !== dateKey),
+      }))
+    );
+    return { ok: true };
+  },
+
+  cancelAppointment: (id) => {
+    const { currentTherapist, appointments } = get();
+    const appointment = appointments.find((a) => a.id === id);
+    if (!currentTherapist || !appointment || appointment.therapistId !== currentTherapist.id) {
+      return { ok: false, error: OWN_APPOINTMENTS_ONLY };
+    }
+    if (appointment.status !== "active") {
+      return { ok: false, error: "La cita ya está cancelada." };
+    }
+    if (appointment.date < todayKey()) {
+      return { ok: false, error: "No puedes cancelar una cita pasada." };
+    }
+
+    const cancelledAt = new Date().toISOString();
+    set((state) => ({
+      appointments: state.appointments.map((a) =>
+        a.id === id ? { ...a, status: "cancelled" as const, cancelledAt } : a
+      ),
+    }));
+    return { ok: true };
+  },
 }));
+
+/**
+ * Aplica `update` al terapeuta en sesión manteniendo sincronizadas su ficha en `specialists`
+ * y la copia `currentTherapist` (si no, la UI del terapeuta vería datos viejos).
+ */
+function updateCurrentSpecialist(
+  state: PatientStoreState,
+  update: (sp: Specialist) => Specialist
+): Pick<PatientStoreState, "specialists" | "currentTherapist"> {
+  const id = state.currentTherapist?.id;
+  const specialists = state.specialists.map((sp) => (sp.id === id ? update(sp) : sp));
+  return {
+    specialists,
+    currentTherapist: specialists.find((sp) => sp.id === id) ?? state.currentTherapist,
+  };
+}
 
 /**
  * Reglas del formulario de terapeutas (SPEC 01). `editingId` es el specialistId que se edita,

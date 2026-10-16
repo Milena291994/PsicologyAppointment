@@ -82,7 +82,7 @@ export const Step4Payment: React.FC<Step4PaymentProps> = ({
           {/* Desglose */}
           <div className="border-t border-border pt-3 space-y-2 text-xs">
             <div className="flex justify-between text-muted-foreground">
-              <span>Sesión Psicológica Clínica Individual (50 min):</span>
+              <span>Sesión Psicológica Clínica Individual ({selectedTherapist?.slotIntervalMinutes} min):</span>
               <span className="font-semibold text-foreground">${price.toFixed(2)} USD</span>
             </div>
             <div className="flex justify-between text-muted-foreground text-[11px]">

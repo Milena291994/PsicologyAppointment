@@ -8,6 +8,7 @@ import { usePatientStore } from "@/store/usePatientStore";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDateKey, parseDateKey } from "@/lib/date";
+import { hasAvailability } from "@/lib/schedule";
 
 interface Step1DateProps {
   selectedTherapistId: string | null;
@@ -50,23 +51,36 @@ export const Step1Date: React.FC<Step1DateProps> = ({
   onContinue,
 }) => {
   const specialists = usePatientStore((s) => s.specialists);
+  const appointments = usePatientStore((s) => s.appointments);
   const activeSpecialists = specialists.filter((sp) => sp.active);
+  const selectedSpecialist = specialists.find((sp) => sp.id === selectedTherapistId) || null;
+  const hasNoSchedule =
+    !!selectedSpecialist && Object.values(selectedSpecialist.weeklySchedule).every((range) => range === null);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const todayDateKey = formatDateKey(today);
 
   const [currentMonth, setCurrentMonth] = useState<number>(today.getMonth());
   const [currentYear, setCurrentYear] = useState<number>(today.getFullYear());
 
-  // Calcular 3 fechas tentativas recomendadas
+  /** Día reservable: con terapeuta elegido, debe tener algún horario ofrecido y libre (horario semanal, días cancelados, ocupados). */
+  const isDayAvailable = (dateKey: string): boolean => {
+    if (dateKey < todayDateKey) return false;
+    // Sin terapeuta elegido el calendario está deshabilitado; no hay días cerrados globales (cada terapeuta decide).
+    if (!selectedSpecialist) return true;
+    return hasAvailability(selectedSpecialist, appointments, dateKey);
+  };
+
+  // Calcular 3 fechas tentativas recomendadas (las próximas con cupo del terapeuta elegido)
   const tentativeDates: TentativeDate[] = React.useMemo(() => {
     const list: TentativeDate[] = [];
     const cursor = new Date(today);
     const badges = ["Más cercana", "Recomendada", "Alternativa"];
 
-    while (list.length < 3) {
+    // Tope de búsqueda para terapeutas con poca o ninguna disponibilidad.
+    for (let i = 0; i < 60 && list.length < 3; i++) {
       cursor.setDate(cursor.getDate() + 1);
-      if (cursor.getDay() !== 0) {
-        // Excluir domingos
+      if (isDayAvailable(formatDateKey(cursor))) {
         list.push({
           dateKey: formatDateKey(cursor),
           dateObj: new Date(cursor),
@@ -80,7 +94,7 @@ export const Step1Date: React.FC<Step1DateProps> = ({
       }
     }
     return list;
-  }, []);
+  }, [selectedSpecialist, appointments]);
 
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -127,12 +141,10 @@ export const Step1Date: React.FC<Step1DateProps> = ({
     for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
       const dateObj = new Date(currentYear, currentMonth, dayNum);
       const dateKey = formatDateKey(dateObj);
-      const isSunday = dateObj.getDay() === 0;
-      const isPast = dateObj < today;
-      const isToday = formatDateKey(today) === dateKey;
+      const isToday = todayDateKey === dateKey;
       const isSelected = selectedDate === dateKey;
 
-      if (isPast || isSunday) {
+      if (!isDayAvailable(dateKey)) {
         cells.push(
           <button
             key={dateKey}
@@ -170,7 +182,7 @@ export const Step1Date: React.FC<Step1DateProps> = ({
     }
 
     return cells;
-  }, [currentMonth, currentYear, selectedDate]);
+  }, [currentMonth, currentYear, selectedDate, selectedSpecialist, appointments]);
 
   return (
     <Card>
@@ -265,6 +277,10 @@ export const Step1Date: React.FC<Step1DateProps> = ({
             Selecciona un/a terapeuta para ver fechas disponibles.
           </p>
         )}
+        {hasNoSchedule && (
+          <p className="text-xs font-medium text-destructive">Este terapeuta aún no tiene horarios disponibles.</p>
+        )}
+        {tentativeDates.length > 0 && (
         <div>
           <label className="text-xs font-semibold text-foreground flex items-center gap-1.5 mb-2.5">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
@@ -302,6 +318,7 @@ export const Step1Date: React.FC<Step1DateProps> = ({
             ))}
           </div>
         </div>
+        )}
 
         {/* Calendario shadcn */}
         <div className="border border-border rounded-xl p-4 sm:p-5 bg-card/60">
