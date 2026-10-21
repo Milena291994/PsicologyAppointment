@@ -3,7 +3,7 @@ import { Clock, Sun, Sunset, Sparkle, ArrowLeft, ArrowRight } from "lucide-react
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { usePatientStore } from "@/store/usePatientStore";
+import { useBusySlots } from "@/hooks/useAppointments";
 import { generateDaySlots, takenSlotLabels } from "@/lib/schedule";
 import { Specialist, TimeSlot } from "@/types";
 import { toast } from "sonner";
@@ -26,12 +26,12 @@ export const Step2Time: React.FC<Step2TimeProps> = ({
   onBack,
   onContinue,
 }: Step2TimeProps) => {
-  const appointments = usePatientStore((s) => s.appointments);
+  const { busySlots } = useBusySlots(therapist?.id ?? null);
   // El intervalo del terapeuta es la duración de la cita (SPEC 02).
   const minutes = therapist?.slotIntervalMinutes;
 
   // Solo los horarios que el terapeuta ofrece ese día; los ocupados se muestran deshabilitados.
-  const taken = therapist && dateKey ? takenSlotLabels(appointments, therapist.id, dateKey) : new Set<string>();
+  const taken = therapist && dateKey ? takenSlotLabels(busySlots, therapist.id, dateKey) : new Set<string>();
   const offeredSlots = therapist && dateKey ? generateDaySlots(therapist, dateKey) : [];
   const morningSlots = offeredSlots.filter((s) => s.period === "morning");
   const afternoonSlots = offeredSlots.filter((s) => s.period === "afternoon");

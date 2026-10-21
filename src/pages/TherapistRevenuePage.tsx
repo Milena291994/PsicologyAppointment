@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { usePatientStore } from "@/store/usePatientStore";
+import { useAppointments } from "@/hooks/useAppointments";
 import { Appointment } from "@/types";
 import {
   addDaysToKey,
@@ -147,7 +148,7 @@ function sumOf(list: Appointment[]): number {
 
 export const TherapistRevenuePage: React.FC = () => {
   const currentTherapist = usePatientStore((s) => s.currentTherapist);
-  const appointments = usePatientStore((s) => s.appointments);
+  const { appointments } = useAppointments(currentTherapist ? { therapistId: currentTherapist.id } : null);
 
   const [range, setRange] = useState<DateRange>(PRESETS[0].range);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -158,8 +159,8 @@ export const TherapistRevenuePage: React.FC = () => {
 
   const myPayments = useMemo(
     // Las canceladas no cuentan como ingreso (el reembolso se asume fuera del sistema); si se reprograman vuelven a sumar.
-    () => appointments.filter((a) => a.therapistId === currentTherapist?.id && a.status === "active"),
-    [appointments, currentTherapist]
+    () => appointments.filter((a) => a.status === "active"),
+    [appointments]
   );
 
   const inRange = useMemo(() => {

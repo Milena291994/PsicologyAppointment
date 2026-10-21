@@ -131,6 +131,9 @@ export interface Appointment {
   cancelledAt?: string;
 }
 
+/** Lo mínimo de una cita para calcular disponibilidad; es lo único que se expone de citas ajenas. */
+export type BusySlot = Pick<Appointment, "id" | "therapistId" | "date" | "timeLabel" | "status">;
+
 export interface AttendeeSelection {
   type: "patient" | "dependent";
   id: string;

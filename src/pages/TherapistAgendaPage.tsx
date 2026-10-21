@@ -27,7 +27,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { usePatientStore } from "@/store/usePatientStore";
+import { getAppointmentActor, usePatientStore } from "@/store/usePatientStore";
+import { useAppointments } from "@/hooks/useAppointments";
+import { cancelAppointment, rescheduleAppointment } from "@/services/appointmentsService";
 import { Appointment } from "@/types";
 import { formatShortDate, todayKey } from "@/lib/date";
 import { exportAgendaToExcel } from "@/lib/exportAgenda";
@@ -46,9 +48,9 @@ type StatusFilter = "active" | "cancelled" | "all";
 
 export const TherapistAgendaPage: React.FC = () => {
   const currentTherapist = usePatientStore((s) => s.currentTherapist);
-  const appointments = usePatientStore((s) => s.appointments);
-  const rescheduleAppointment = usePatientStore((s) => s.rescheduleAppointment);
-  const cancelAppointment = usePatientStore((s) => s.cancelAppointment);
+  const { appointments: myAppointments, loading } = useAppointments(
+    currentTherapist ? { therapistId: currentTherapist.id } : null
+  );
 
   const today = todayKey();
   const [dateFilter, setDateFilter] = useState(today);
@@ -61,11 +63,7 @@ export const TherapistAgendaPage: React.FC = () => {
   const [newDate, setNewDate] = useState("");
   const [newTimeLabel, setNewTimeLabel] = useState("");
   const [isExporting, setIsExporting] = useState(false);
-
-  const myAppointments = useMemo(
-    () => appointments.filter((a) => a.therapistId === currentTherapist?.id),
-    [appointments, currentTherapist]
-  );
+  const [isSaving, setIsSaving] = useState(false);
 
   const filtered = useMemo(() => {
     const name = normalize(nameFilter);
@@ -103,9 +101,11 @@ export const TherapistAgendaPage: React.FC = () => {
     }
   };
 
-  const confirmCancel = () => {
+  const confirmCancel = async () => {
     if (!cancelling) return;
-    const result = cancelAppointment(cancelling.id);
+    setIsSaving(true);
+    const result = await cancelAppointment(cancelling.id, getAppointmentActor());
+    setIsSaving(false);
     if (!result.ok) {
       toast.error("No se pudo cancelar", { description: result.error });
       return;
@@ -126,11 +126,11 @@ export const TherapistAgendaPage: React.FC = () => {
   // los ocupados por otras citas activas se listan deshabilitados.
   const slotLabels = newDate ? offeredSlotLabels(currentTherapist, newDate) : [];
   const takenLabels = newDate
-    ? takenSlotLabels(appointments, currentTherapist.id, newDate, rescheduling?.id)
+    ? takenSlotLabels(myAppointments, currentTherapist.id, newDate, rescheduling?.id)
     : new Set<string>();
   const hasFreeSlot = slotLabels.some((label) => !takenLabels.has(label));
 
-  const confirmReschedule = () => {
+  const confirmReschedule = async () => {
     if (!rescheduling || !newDate || !newTimeLabel) return;
 
     if (newDate < today) {
@@ -153,7 +153,15 @@ export const TherapistAgendaPage: React.FC = () => {
       return;
     }
 
-    const result = rescheduleAppointment(rescheduling.id, currentTherapist.id, newDate, newTimeLabel);
+    setIsSaving(true);
+    const result = await rescheduleAppointment(
+      rescheduling.id,
+      currentTherapist,
+      newDate,
+      newTimeLabel,
+      getAppointmentActor()
+    );
+    setIsSaving(false);
     if (!result.ok) {
       toast.error("Horario no disponible", { description: result.error });
       return;
@@ -275,7 +283,11 @@ export const TherapistAgendaPage: React.FC = () => {
 
       {/* Tabla de citas */}
       <Card className="overflow-hidden">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="p-10 text-center">
+            <p className="text-sm text-muted-foreground">Cargando tu agenda…</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="p-10 text-center space-y-2">
             <CalendarClock className="w-10 h-10 text-primary mx-auto" />
             <p className="text-sm text-muted-foreground">
@@ -386,7 +398,7 @@ export const TherapistAgendaPage: React.FC = () => {
             <Button variant="outline" onClick={() => setCancelling(null)}>
               Volver
             </Button>
-            <Button variant="destructive" onClick={confirmCancel}>
+            <Button variant="destructive" onClick={confirmCancel} disabled={isSaving}>
               Cancelar cita
             </Button>
           </DialogFooter>
@@ -450,7 +462,7 @@ export const TherapistAgendaPage: React.FC = () => {
             </Button>
             <Button
               onClick={confirmReschedule}
-              disabled={!hasFreeSlot || !slotLabels.includes(newTimeLabel) || takenLabels.has(newTimeLabel)}
+              disabled={isSaving || !hasFreeSlot || !slotLabels.includes(newTimeLabel) || takenLabels.has(newTimeLabel)}
             >
               Confirmar nuevo horario
             </Button>

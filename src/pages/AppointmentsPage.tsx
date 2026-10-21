@@ -13,7 +13,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { usePatientStore } from "@/store/usePatientStore";
+import { getAppointmentActor, usePatientStore } from "@/store/usePatientStore";
+import { useAppointments, useBusySlots } from "@/hooks/useAppointments";
+import { rescheduleAppointment } from "@/services/appointmentsService";
 import { ROUTES } from "@/routes/paths";
 import { todayKey } from "@/lib/date";
 import { offeredSlotLabels, takenSlotLabels } from "@/lib/schedule";
@@ -22,8 +24,6 @@ import { toast } from "sonner";
 
 export const AppointmentsPage: React.FC = () => {
   const currentPatient = usePatientStore((s) => s.currentPatient);
-  const appointments = usePatientStore((s) => s.appointments);
-  const rescheduleAppointment = usePatientStore((s) => s.rescheduleAppointment);
   const specialists = usePatientStore((s) => s.specialists);
   const activeSpecialists = specialists.filter((sp) => sp.active);
 
@@ -31,11 +31,14 @@ export const AppointmentsPage: React.FC = () => {
   const [newTherapistId, setNewTherapistId] = useState("");
   const [newDate, setNewDate] = useState("");
   const [newTimeLabel, setNewTimeLabel] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const attendeeIds = currentPatient ? [currentPatient.id, ...currentPatient.dependents.map((d) => d.id)] : null;
+  const { appointments: myAppointments, loading } = useAppointments(attendeeIds && { attendeeIds });
+  // Solo los horarios ocupados del terapeuta destino, sin datos de otros pacientes.
+  const { busySlots } = useBusySlots(rescheduling ? newTherapistId || null : null);
 
   if (!currentPatient) return null;
-
-  const ownedIds = new Set([currentPatient.id, ...currentPatient.dependents.map((d) => d.id)]);
-  const myAppointments = appointments.filter((a) => ownedIds.has(a.attendeeId));
 
   // Busca entre todos (incluidos inactivos) para seguir mostrando el nombre en citas antiguas.
   const findTherapist = (id: string | null) => specialists.find((sp) => sp.id === id) || null;
@@ -48,9 +51,12 @@ export const AppointmentsPage: React.FC = () => {
     setNewTimeLabel(appt.timeLabel);
   };
 
-  const confirmReschedule = () => {
-    if (!rescheduling || !newTherapistId || !newDate || !newTimeLabel) return;
-    const result = rescheduleAppointment(rescheduling.id, newTherapistId, newDate, newTimeLabel);
+  const confirmReschedule = async () => {
+    const target = findTherapist(newTherapistId);
+    if (!rescheduling || !target || !newDate || !newTimeLabel) return;
+    setIsSaving(true);
+    const result = await rescheduleAppointment(rescheduling.id, target, newDate, newTimeLabel, getAppointmentActor());
+    setIsSaving(false);
     if (!result.ok) {
       toast.error("Horario no disponible", { description: result.error });
       return;
@@ -70,7 +76,7 @@ export const AppointmentsPage: React.FC = () => {
   const slotLabels = newTherapist && newDate ? offeredSlotLabels(newTherapist, newDate) : [];
   const takenLabels =
     newTherapist && newDate
-      ? takenSlotLabels(appointments, newTherapist.id, newDate, rescheduling?.id)
+      ? takenSlotLabels(busySlots, newTherapist.id, newDate, rescheduling?.id)
       : new Set<string>();
   const hasFreeSlot = slotLabels.some((label) => !takenLabels.has(label));
 
@@ -83,7 +89,11 @@ export const AppointmentsPage: React.FC = () => {
         </p>
       </div>
 
-      {myAppointments.length === 0 ? (
+      {loading ? (
+        <Card className="p-8 text-center">
+          <p className="text-sm text-muted-foreground">Cargando tus citas…</p>
+        </Card>
+      ) : myAppointments.length === 0 ? (
         <Card className="p-8 text-center space-y-3">
           <CalendarClock className="w-10 h-10 text-primary mx-auto" />
           <p className="text-sm text-muted-foreground">Todavía no tienes citas agendadas.</p>
@@ -216,7 +226,7 @@ export const AppointmentsPage: React.FC = () => {
           <DialogFooter>
             <Button
               onClick={confirmReschedule}
-              disabled={!hasFreeSlot || !slotLabels.includes(newTimeLabel) || takenLabels.has(newTimeLabel)}
+              disabled={isSaving || !hasFreeSlot || !slotLabels.includes(newTimeLabel) || takenLabels.has(newTimeLabel)}
             >
               Confirmar nuevo horario
             </Button>

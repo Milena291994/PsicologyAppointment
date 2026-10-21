@@ -1,4 +1,4 @@
-import { Appointment, Specialist, TimeSlot } from "@/types";
+import { BusySlot, Specialist, TimeSlot } from "@/types";
 import { parseDateKey } from "@/lib/date";
 
 /** "HH:mm" → minutos desde medianoche (las horas se comparan siempre en minutos, nunca como texto). */
@@ -65,7 +65,7 @@ export function offeredSlotLabels(specialist: Specialist, dateKey: string): stri
 
 /** Labels ocupados por citas ACTIVAS del terapeuta en esa fecha (las canceladas liberan el horario). */
 export function takenSlotLabels(
-  appointments: Appointment[],
+  appointments: BusySlot[],
   therapistId: string,
   dateKey: string,
   excludeAppointmentId?: string
@@ -84,7 +84,7 @@ export function takenSlotLabels(
 }
 
 /** true si queda al menos un horario ofrecido y libre ese día. */
-export function hasAvailability(specialist: Specialist, appointments: Appointment[], dateKey: string): boolean {
+export function hasAvailability(specialist: Specialist, appointments: BusySlot[], dateKey: string): boolean {
   const taken = takenSlotLabels(appointments, specialist.id, dateKey);
   return offeredSlotLabels(specialist, dateKey).some((label) => !taken.has(label));
 }

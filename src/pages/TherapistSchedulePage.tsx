@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { usePatientStore } from "@/store/usePatientStore";
+import { useAppointments } from "@/hooks/useAppointments";
 import { TimeBlock, WeeklySchedule } from "@/types";
 import { formatShortDate, todayKey } from "@/lib/date";
 import { formatSlotLabel } from "@/lib/schedule";
@@ -68,7 +69,7 @@ function toSchedule(draft: Record<number, DayDraft>): WeeklySchedule {
 export const TherapistSchedulePage: React.FC = () => {
   const currentTherapist = usePatientStore((s) => s.currentTherapist);
   const updateWeeklySchedule = usePatientStore((s) => s.updateWeeklySchedule);
-  const appointments = usePatientStore((s) => s.appointments);
+  const { appointments } = useAppointments(currentTherapist ? { therapistId: currentTherapist.id } : null);
   const cancelDay = usePatientStore((s) => s.cancelDay);
   const reopenDay = usePatientStore((s) => s.reopenDay);
   const addTimeBlock = usePatientStore((s) => s.addTimeBlock);
@@ -94,9 +95,9 @@ export const TherapistSchedulePage: React.FC = () => {
   // `timeBlocks` ya viene ordenado por fecha y hora desde el store.
   const upcomingBlocks = currentTherapist.timeBlocks.filter((b) => b.date >= today);
 
-  const handleAddBlock = () => {
+  const handleAddBlock = async () => {
     const block = { date: blockDate, start: blockStart, end: blockEnd };
-    const result = addTimeBlock(block);
+    const result = await addTimeBlock(block);
     if (!result.ok) {
       toast.error("No se pudo bloquear el horario", { description: result.error });
       return;
@@ -116,9 +117,7 @@ export const TherapistSchedulePage: React.FC = () => {
       description: `${formatShortDate(block.date)} · ${formatSlotLabel(block.start)} – ${formatSlotLabel(block.end)} vuelve a estar disponible.`,
     });
   };
-  const appointmentsOnDay = appointments.filter(
-    (a) => a.therapistId === currentTherapist.id && a.date === dayToCancel && a.status === "active"
-  ).length;
+  const appointmentsOnDay = appointments.filter((a) => a.date === dayToCancel && a.status === "active").length;
 
   const openCancelDay = () => {
     if (!dayToCancel || dayToCancel < today) {
@@ -132,8 +131,8 @@ export const TherapistSchedulePage: React.FC = () => {
     setConfirmingCancel(true);
   };
 
-  const confirmCancelDay = () => {
-    const result = cancelDay(dayToCancel);
+  const confirmCancelDay = async () => {
+    const result = await cancelDay(dayToCancel);
     if (!result.ok) {
       toast.error("No se pudo cancelar el día", { description: result.error });
       return;
@@ -156,10 +155,10 @@ export const TherapistSchedulePage: React.FC = () => {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Un campo vacío pasa como NaN para que la validación del store lo rechace.
     const minutes = intervalInput.trim() === "" ? NaN : Number(intervalInput);
-    const result = updateWeeklySchedule(toSchedule(draft), minutes);
+    const result = await updateWeeklySchedule(toSchedule(draft), minutes);
     if (!result.ok) {
       toast.error("No se pudo guardar el horario", { description: result.error });
       return;

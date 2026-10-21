@@ -10,14 +10,13 @@ import { BookingSummary } from "@/components/booking/BookingSummary";
 import { PayphoneModal } from "@/components/booking/PayphoneModal";
 import { SuccessScreen } from "@/components/booking/SuccessScreen";
 import { Modality, PatientFormData, AttendeeSelection } from "@/types";
-import { usePatientStore } from "@/store/usePatientStore";
+import { getAppointmentActor, usePatientStore } from "@/store/usePatientStore";
+import { createAppointment, listBusySlots } from "@/services/appointmentsService";
 import { hasAvailability } from "@/lib/schedule";
 import { toast } from "sonner";
 
 export function BookingPage() {
   const currentPatient = usePatientStore((s) => s.currentPatient);
-  const addAppointment = usePatientStore((s) => s.addAppointment);
-  const appointments = usePatientStore((s) => s.appointments);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [selectedTherapistId, setSelectedTherapistId] = useState<string | null>(null);
@@ -61,12 +60,14 @@ export function BookingPage() {
   };
 
   /** Al cambiar de terapeuta se descarta el horario y, si la fecha ya no tiene cupo con él, también la fecha. */
-  const handleSelectTherapist = (id: string) => {
+  const handleSelectTherapist = async (id: string) => {
     setSelectedTherapistId(id);
     setSelectedTime(null);
     setSelectedTimeLabel(null);
+    if (!selectedDate) return;
     const therapist = specialists.find((sp) => sp.id === id);
-    if (selectedDate && !(therapist && hasAvailability(therapist, appointments, selectedDate))) {
+    const busySlots = therapist ? await listBusySlots(therapist.id) : [];
+    if (!(therapist && hasAvailability(therapist, busySlots, selectedDate))) {
       setSelectedDate(null);
     }
   };
@@ -76,31 +77,40 @@ export function BookingPage() {
     setSelectedTimeLabel(label);
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async () => {
+    if (!selectedDate || !selectedTimeLabel || !currentPatient || !selectedTherapist) return;
+
     const code = "CS-" + Math.floor(100000 + Math.random() * 900000);
-    setBookingCode(code);
-    setIsSuccess(true);
+    const attendeeIdentification =
+      attendee.type === "patient"
+        ? currentPatient.identification
+        : currentPatient.dependents.find((d) => d.id === attendee.id)?.identification || "";
 
-    if (selectedDate && selectedTimeLabel && currentPatient) {
-      const attendeeIdentification =
-        attendee.type === "patient"
-          ? currentPatient.identification
-          : currentPatient.dependents.find((d) => d.id === attendee.id)?.identification || "";
-
-      addAppointment({
+    // El servicio vuelve a validar el horario: otro paciente pudo tomarlo mientras se pagaba.
+    const result = await createAppointment(
+      {
         attendeeType: attendee.type,
         attendeeId: attendee.id,
         attendeeName: attendee.name,
         attendeeIdentification,
-        therapistId: selectedTherapistId,
         date: selectedDate,
         timeLabel: selectedTimeLabel,
         modality,
         bookingCode: code,
-        amountPaid: selectedTherapist?.price ?? 0,
-      });
+      },
+      selectedTherapist,
+      getAppointmentActor()
+    );
+    if (!result.ok) {
+      toast.error("No se pudo registrar la cita", { description: result.error });
+      setSelectedTime(null);
+      setSelectedTimeLabel(null);
+      setCurrentStep(2);
+      return;
     }
 
+    setBookingCode(code);
+    setIsSuccess(true);
     window.scrollTo({ top: 80, behavior: "smooth" });
   };
 

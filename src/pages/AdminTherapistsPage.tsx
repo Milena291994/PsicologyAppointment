@@ -103,8 +103,12 @@ export const AdminTherapistsPage: React.FC = () => {
     setDialogOpen(false);
   };
 
-  const toggleActive = (sp: Specialist) => {
-    setTherapistActive(sp.id, !sp.active);
+  const toggleActive = async (sp: Specialist) => {
+    const result = await setTherapistActive(sp.id, !sp.active);
+    if (!result.ok) {
+      toast.error(sp.active ? "No se pudo desactivar" : "No se pudo activar", { description: result.error });
+      return;
+    }
     toast.success(sp.active ? "Terapeuta desactivado" : "Terapeuta activado", {
       description: sp.active
         ? `${sp.name} ya no aparece al reservar y no puede iniciar sesión.`

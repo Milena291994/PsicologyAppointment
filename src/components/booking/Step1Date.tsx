@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TentativeDate } from "@/types";
 import { usePatientStore } from "@/store/usePatientStore";
+import { useBusySlots } from "@/hooks/useAppointments";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDateKey, parseDateKey } from "@/lib/date";
@@ -51,7 +52,7 @@ export const Step1Date: React.FC<Step1DateProps> = ({
   onContinue,
 }) => {
   const specialists = usePatientStore((s) => s.specialists);
-  const appointments = usePatientStore((s) => s.appointments);
+  const { busySlots } = useBusySlots(selectedTherapistId);
   const activeSpecialists = specialists.filter((sp) => sp.active);
   const selectedSpecialist = specialists.find((sp) => sp.id === selectedTherapistId) || null;
   const hasNoSchedule =
@@ -68,7 +69,7 @@ export const Step1Date: React.FC<Step1DateProps> = ({
     if (dateKey < todayDateKey) return false;
     // Sin terapeuta elegido el calendario está deshabilitado; no hay días cerrados globales (cada terapeuta decide).
     if (!selectedSpecialist) return true;
-    return hasAvailability(selectedSpecialist, appointments, dateKey);
+    return hasAvailability(selectedSpecialist, busySlots, dateKey);
   };
 
   // Calcular 3 fechas tentativas recomendadas (las próximas con cupo del terapeuta elegido)
@@ -94,7 +95,7 @@ export const Step1Date: React.FC<Step1DateProps> = ({
       }
     }
     return list;
-  }, [selectedSpecialist, appointments]);
+  }, [selectedSpecialist, busySlots]);
 
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -182,7 +183,7 @@ export const Step1Date: React.FC<Step1DateProps> = ({
     }
 
     return cells;
-  }, [currentMonth, currentYear, selectedDate, selectedSpecialist, appointments]);
+  }, [currentMonth, currentYear, selectedDate, selectedSpecialist, busySlots]);
 
   return (
     <Card>
