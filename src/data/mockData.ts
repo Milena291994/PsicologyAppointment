@@ -90,7 +90,7 @@ export const APP_CONFIG: AppConfig = {
     merchantName: "Psicología y Mente",
     taxIncluded: true
   },
-  termsUrl: "/legal/terminos-y-condiciones.pdf",
+  termsUrl: `${import.meta.env.BASE_URL}legal/terminos-y-condiciones.pdf`,
   // Demo login credentials (no backend — see CLAUDE.md): cédula + password "1234" for any seeded patient below.
   registeredPatients: [
     {

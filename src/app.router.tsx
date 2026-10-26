@@ -95,4 +95,7 @@ export const router = createBrowserRouter([
     ],
   },
   { path: "*", element: <Navigate to={ROUTES.booking} replace /> },
-]);
+], {
+  // En GitHub Pages la app vive bajo /<repo>/ (ver `base` en vite.config.ts).
+  basename: import.meta.env.BASE_URL,
+});
